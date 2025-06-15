@@ -1,19 +1,19 @@
+// src/App.tsx
+
+import React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { message } from 'antd'
-import { AppRouter } from './router'
+import { ConfigProvider } from 'antd'
+import trTR from 'antd/locale/tr_TR'
+import { Router } from './router'
 
-message.config({
-  top: 100,
-  duration: 3,
-  maxCount: 3,
-})
-
+// React Query configuration
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5,
+      staleTime: 1000 * 60 * 5, // 5 dakika
       refetchOnWindowFocus: false,
+      retry: 3,
     },
   },
 })
@@ -21,7 +21,20 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppRouter />
+      <ConfigProvider 
+        locale={trTR}
+        theme={{
+          token: {
+            colorPrimary: '#1890ff',
+            borderRadius: 6,
+            colorSuccess: '#52c41a',
+            colorWarning: '#faad14', 
+            colorError: '#ff4d4f',
+          },
+        }}
+      >
+        <Router />
+      </ConfigProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   )

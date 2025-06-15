@@ -1,7 +1,9 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+// src/router/index.tsx
+
+import React from 'react'
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { AppLayout } from '@/shared/components/layout/AppLayout'
-import { TodosPage } from '@/modules/todo/pages/TodosPage'
-import { CategoriesPage } from '@/modules/category/pages/CategoriesPage'
+import { StocksPage } from '@/modules/stock/pages/StocksPage'
 
 const router = createBrowserRouter([
   {
@@ -10,18 +12,42 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <TodosPage />
+        element: <Navigate to="/stocks" replace />
       },
       {
-        path: 'todos',
-        element: <TodosPage />
+        path: 'stocks',
+        element: <StocksPage />
       },
-      {
-        path: 'categories',
-        element: <CategoriesPage />
-      }
+      // Diğer modüller buraya eklenecek
+      // {
+      //   path: 'suppliers',
+      //   element: <SuppliersPage />
+      // },
+      // {
+      //   path: 'clinics', 
+      //   element: <ClinicsPage />
+      // },
+      // {
+      //   path: 'stock-requests',
+      //   element: <StockRequestsPage />
+      // },
+      // {
+      //   path: 'stock-alerts',
+      //   element: <StockAlertsPage />
+      // },
+      // {
+      //   path: 'reports',
+      //   element: <ReportsPage />
+      // }
     ]
+  },
+  {
+    path: '*',
+    element: <Navigate to="/stocks" replace />
   }
 ])
 
-export const AppRouter = () => <RouterProvider router={router} />
+// Router Component'i export et
+export const Router: React.FC = () => {
+  return <RouterProvider router={router} />
+}
