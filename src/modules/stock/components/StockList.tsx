@@ -312,16 +312,7 @@ export const StockList: React.FC = () => {
     <div>
       <Title level={2}>Stok Yönetimi</Title>
       
-      {/* Debug Info - Sadece development'ta göster */}
-      {isDev && (
-        <Card style={{ marginBottom: 16, backgroundColor: '#fff7e6' }}>
-          <div>
-            <strong>🔧 Debug Info:</strong>
-            <div>API URL: {import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}</div>
-            <div>Backend Test: <a href="http://localhost:8000/api/stocks" target="_blank">Test Backend</a></div>
-          </div>
-        </Card>
-      )}
+      
       
       {statsCards}
       {alertsSection}

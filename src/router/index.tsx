@@ -2,8 +2,10 @@
 
 import React from 'react'
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom'
-import { AppLayout } from '@/shared/components/layout/AppLayout'
-import { StocksPage } from '@/modules/stock/pages/StocksPage'
+import { AppLayout } from '../shared/components/layout/AppLayout'
+import { StocksPage } from '../modules/stock/pages/StocksPage'
+import { SuppliersPage } from '../modules/supplier/pages/SuppliersPage'
+import { ClinicsPage } from '../modules/clinic/pages/ClinicsPage'
 
 const router = createBrowserRouter([
   {
@@ -18,15 +20,15 @@ const router = createBrowserRouter([
         path: 'stocks',
         element: <StocksPage />
       },
+      {
+        path: 'suppliers',
+        element: <SuppliersPage />
+      },
+      {
+        path: 'clinics',
+        element: <ClinicsPage />
+      },
       // Diğer modüller buraya eklenecek
-      // {
-      //   path: 'suppliers',
-      //   element: <SuppliersPage />
-      // },
-      // {
-      //   path: 'clinics', 
-      //   element: <ClinicsPage />
-      // },
       // {
       //   path: 'stock-requests',
       //   element: <StockRequestsPage />

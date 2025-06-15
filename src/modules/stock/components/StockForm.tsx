@@ -20,6 +20,8 @@ import {
 import dayjs, { Dayjs } from 'dayjs'
 import { useStocks } from '../hooks/useStocks'
 import { CreateStockRequest, Stock } from '../types/stock.types'
+import { useActiveSuppliers } from '../../supplier/hooks/useSuppliers'
+import { useActiveClinics } from '../../clinic/hooks/useClinics'
 
 const { Option } = Select
 const { TextArea } = Input
@@ -68,6 +70,10 @@ export const StockForm: React.FC<StockFormProps> = ({
   const updateStock = stocksData.updateStock
   const isCreating = stocksData.isCreating
   const isUpdating = stocksData.isUpdating
+
+  // Supplier ve Clinic listelerini çek
+  const { data: suppliers, isLoading: suppliersLoading } = useActiveSuppliers()
+  const { data: clinics, isLoading: clinicsLoading } = useActiveClinics()
 
   useEffect(() => {
     if (stock) {
@@ -383,9 +389,17 @@ export const StockForm: React.FC<StockFormProps> = ({
               name="supplier_id"
               rules={[{ required: true, message: 'Tedarikçi seçimi gereklidir!' }]}
             >
-              <Select placeholder="Tedarikçi seçin">
-                <Option value={1}>ABC Dental Supplies</Option>
-                <Option value={2}>Dental Pro Turkey</Option>
+              <Select 
+                placeholder="Tedarikçi seçin"
+                loading={suppliersLoading}
+                showSearch
+                optionFilterProp="children"
+              >
+                {suppliers?.map((supplier) => (
+                  <Option key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
           </Col>
@@ -396,11 +410,17 @@ export const StockForm: React.FC<StockFormProps> = ({
               name="clinic_id"
               rules={[{ required: true, message: 'Klinik seçimi gereklidir!' }]}
             >
-              <Select placeholder="Klinik seçin">
-                <Option value={1}>Ortodonti Kliniği - Dr. Mehmet Öz</Option>
-                <Option value={2}>Periodontoloji Kliniği - Dr. Ayşe Demir</Option>
-                <Option value={3}>Estetik Diş Hekimliği - Dr. Elif Özkan</Option>
-                <Option value={4}>Çocuk Diş Hekimliği - Dr. Caner Yılmaz</Option>
+              <Select 
+                placeholder="Klinik seçin"
+                loading={clinicsLoading}
+                showSearch
+                optionFilterProp="children"
+              >
+                {clinics?.map((clinic) => (
+                  <Option key={clinic.id} value={clinic.id}>
+                    {clinic.name} ({clinic.code})
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
           </Col>
