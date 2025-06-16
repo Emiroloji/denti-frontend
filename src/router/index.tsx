@@ -6,6 +6,8 @@ import { AppLayout } from '../shared/components/layout/AppLayout'
 import { StocksPage } from '../modules/stock/pages/StocksPage'
 import { SuppliersPage } from '../modules/supplier/pages/SuppliersPage'
 import { ClinicsPage } from '../modules/clinic/pages/ClinicsPage'
+import { StockRequestsPage } from '@/modules/stockRequest/pages/StockRequestsPage'
+
 
 const router = createBrowserRouter([
   {
@@ -28,11 +30,10 @@ const router = createBrowserRouter([
         path: 'clinics',
         element: <ClinicsPage />
       },
-      // Diğer modüller buraya eklenecek
-      // {
-      //   path: 'stock-requests',
-      //   element: <StockRequestsPage />
-      // },
+      {
+        path: 'stock-requests',
+        element: <StockRequestsPage />
+      },
       // {
       //   path: 'stock-alerts',
       //   element: <StockAlertsPage />

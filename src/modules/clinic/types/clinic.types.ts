@@ -7,6 +7,8 @@ export interface Clinic {
     description?: string
     responsible_person?: string // Dr. name
     phone?: string
+    specialty_code?: string  // Bu alan eklenmeli
+
     location?: string
     is_active: boolean
     created_at: string
