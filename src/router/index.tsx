@@ -7,6 +7,8 @@ import { StocksPage } from '../modules/stock/pages/StocksPage'
 import { SuppliersPage } from '../modules/supplier/pages/SuppliersPage'
 import { ClinicsPage } from '../modules/clinic/pages/ClinicsPage'
 import { StockRequestsPage } from '@/modules/stockRequest/pages/StockRequestsPage'
+import { AlertsPage } from '@/modules/alerts/pages/AlertsPage'
+
 
 
 const router = createBrowserRouter([
@@ -34,10 +36,10 @@ const router = createBrowserRouter([
         path: 'stock-requests',
         element: <StockRequestsPage />
       },
-      // {
-      //   path: 'stock-alerts',
-      //   element: <StockAlertsPage />
-      // },
+      {
+        path: 'alerts',
+        element: <AlertsPage />
+      },
       // {
       //   path: 'reports',
       //   element: <ReportsPage />

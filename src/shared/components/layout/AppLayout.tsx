@@ -1,7 +1,7 @@
 // src/shared/components/layout/AppLayout.tsx
 
 import React, { useState } from 'react'
-import { Layout, Menu, Button, Typography, Space, Avatar, Dropdown } from 'antd'
+import { Layout, Menu, Button, Typography, Space, Avatar, Dropdown, Badge } from 'antd'
 import { 
   MenuFoldOutlined, 
   MenuUnfoldOutlined,
@@ -9,17 +9,33 @@ import {
   TeamOutlined,
   BankOutlined,
   SwapOutlined,
-  AlertOutlined,
+  BellOutlined,
   BarChartOutlined,
   UserOutlined,
   LogoutOutlined,
-  SettingOutlined
+  SettingOutlined,
 } from '@ant-design/icons'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { usePendingAlertCount } from '@/modules/alerts/hooks/useAlerts'
 import type { MenuProps } from 'antd'
 
 const { Header, Sider, Content } = Layout
 const { Title } = Typography
+
+// Pending alert badge component'i
+const PendingAlertBadge: React.FC = () => {
+  const { data: pendingCount } = usePendingAlertCount()
+  
+  if (!pendingCount || pendingCount === 0) return null
+  
+  return (
+    <Badge 
+      count={pendingCount} 
+      size="small" 
+      style={{ backgroundColor: '#ff4d4f' }}
+    />
+  )
+}
 
 export const AppLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false)
@@ -52,10 +68,15 @@ export const AppLayout: React.FC = () => {
       onClick: () => navigate('/stock-requests')
     },
     {
-      key: '/stock-alerts',
-      icon: <AlertOutlined />,
-      label: 'Uyarılar',
-      onClick: () => navigate('/stock-alerts')
+      key: '/alerts',
+      icon: <BellOutlined />,
+      label: (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <span>Uyarılar</span>
+          {!collapsed && <PendingAlertBadge />}
+        </div>
+      ),
+      onClick: () => navigate('/alerts')
     },
     {
       key: '/reports',
@@ -106,11 +127,11 @@ export const AppLayout: React.FC = () => {
         }}>
           {!collapsed && (
             <Title level={4} style={{ margin: 0, color: '#1890ff' }}>
-              📦 Stok Takip
+              🦷 Denti Management
             </Title>
           )}
           {collapsed && (
-            <div style={{ fontSize: '24px' }}>📦</div>
+            <div style={{ fontSize: '24px' }}>🦷</div>
           )}
         </div>
         
