@@ -24,6 +24,7 @@ import {
 import { useAlertStats, useActiveAlerts } from '../hooks/useAlerts'
 import { AlertSeverityBadge } from './AlertSeverityBadge'
 import { AlertTypeBadge } from './AlertTypeBadge'
+import { AlertType } from '../types/alert.types' // ✅ AlertType import eklendi
 
 const { Text } = Typography
 

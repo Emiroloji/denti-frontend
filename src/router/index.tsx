@@ -8,6 +8,8 @@ import { SuppliersPage } from '../modules/supplier/pages/SuppliersPage'
 import { ClinicsPage } from '../modules/clinic/pages/ClinicsPage'
 import { StockRequestsPage } from '@/modules/stockRequest/pages/StockRequestsPage'
 import { AlertsPage } from '@/modules/alerts/pages/AlertsPage'
+import { ReportsPage } from '@/modules/reports/pages/ReportsPage'
+
 
 
 
@@ -40,10 +42,10 @@ const router = createBrowserRouter([
         path: 'alerts',
         element: <AlertsPage />
       },
-      // {
-      //   path: 'reports',
-      //   element: <ReportsPage />
-      // }
+      {
+        path: 'reports',
+        element: <ReportsPage />
+      }
     ]
   },
   {

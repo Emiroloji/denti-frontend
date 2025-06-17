@@ -32,7 +32,6 @@ import {
 import dayjs from 'dayjs'
 import { useAlerts, useAlertStats } from '../hooks/useAlerts'
 import { useClinics } from '@/modules/clinic/hooks/useClinics'
-import { useStocks } from '@/modules/stock/hooks/useStocks'
 import { AlertCard } from './AlertCard'
 import { AlertDashboard } from './AlertDashboard'
 import { AlertSeverityBadge } from './AlertSeverityBadge'
@@ -57,12 +56,12 @@ export const AlertList: React.FC<AlertListProps> = ({
 }) => {
   const [filters, setFilters] = useState<AlertFilters>({
     clinic_id: defaultClinicId,
-    is_resolved: false // Varsayılan olarak sadece aktif uyarıları göster
+    is_resolved: false
   })
   const [selectedAlerts, setSelectedAlerts] = useState<number[]>([])
   const [bulkActionModalVisible, setBulkActionModalVisible] = useState(false)
   const [bulkActionType, setBulkActionType] = useState<'resolve' | 'dismiss' | 'delete'>('resolve')
-  const [bulkForm] = Form.useForm()
+  const [bulkModalKey, setBulkModalKey] = useState(0) // Modal'ı yeniden mount etmek için
 
   const { 
     alerts, 
@@ -75,27 +74,27 @@ export const AlertList: React.FC<AlertListProps> = ({
   
   const { data: stats } = useAlertStats(defaultClinicId)
   const { clinics } = useClinics()
-  const { stocks } = useStocks()
 
-  const activeClinics = useMemo(() => 
-    clinics?.filter(clinic => clinic.is_active) || [], 
-    [clinics]
-  )
+  // Null check ile güvenli filtreleme
+  const activeClinics = useMemo(() => {
+    if (!clinics || clinics.length === 0) return []
+    return clinics.filter((clinic) => clinic.is_active)
+  }, [clinics])
 
   const handleFilterChange = (key: keyof AlertFilters, value: string | number | boolean | undefined) => {
     setFilters(prev => ({
       ...prev,
       [key]: value
     }))
-    setSelectedAlerts([]) // Filtreleme değiştiğinde seçimi temizle
+    setSelectedAlerts([])
   }
 
   const handleDateRangeChange = (dates: [dayjs.Dayjs | null, dayjs.Dayjs | null] | null) => {
     if (dates && dates.length === 2 && dates[0] && dates[1]) {
       setFilters(prev => ({
         ...prev,
-        date_from: dates[0].format('YYYY-MM-DD'),
-        date_to: dates[1].format('YYYY-MM-DD')
+        date_from: dates[0] ? dates[0].format('YYYY-MM-DD') : undefined,
+        date_to: dates[1] ? dates[1].format('YYYY-MM-DD') : undefined
       }))
     } else {
       setFilters(prev => ({
@@ -123,12 +122,12 @@ export const AlertList: React.FC<AlertListProps> = ({
   }
 
   const selectAllAlerts = () => {
-    if (!alerts) return
+    if (!alerts || alerts.length === 0) return
     
     if (selectedAlerts.length === alerts.length) {
       setSelectedAlerts([])
     } else {
-      setSelectedAlerts(alerts.map(alert => alert.id))
+      setSelectedAlerts(alerts.map((alert) => alert.id))
     }
   }
 
@@ -155,15 +154,15 @@ export const AlertList: React.FC<AlertListProps> = ({
       
       setBulkActionModalVisible(false)
       setSelectedAlerts([])
-      bulkForm.resetFields()
+      // Modal'ı yeniden mount et (form otomatik temizlenir)
+      setBulkModalKey(prev => prev + 1)
     } catch (error) {
       console.error('Bulk action error:', error)
     }
   }
 
   const getFilteredAlertCount = () => {
-    if (!alerts) return 0
-    return alerts.length
+    return alerts?.length || 0
   }
 
   const getPendingCount = () => {
@@ -219,7 +218,7 @@ export const AlertList: React.FC<AlertListProps> = ({
               value={filters.clinic_id}
               onChange={(value) => handleFilterChange('clinic_id', value)}
             >
-              {activeClinics.map(clinic => (
+              {activeClinics.map((clinic) => (
                 <Option key={clinic.id} value={clinic.id}>
                   {clinic.name}
                 </Option>
@@ -235,7 +234,7 @@ export const AlertList: React.FC<AlertListProps> = ({
               value={filters.type}
               onChange={(value) => handleFilterChange('type', value as AlertType)}
             >
-              {alertTypeOptions.map(option => (
+              {alertTypeOptions.map((option) => (
                 <Option key={option.value} value={option.value}>
                   {option.label}
                 </Option>
@@ -251,9 +250,9 @@ export const AlertList: React.FC<AlertListProps> = ({
               value={filters.severity}
               onChange={(value) => handleFilterChange('severity', value as AlertSeverity)}
             >
-              {severityOptions.map(option => (
+              {severityOptions.map((option) => (
                 <Option key={option.value} value={option.value}>
-                  <AlertSeverityBadge severity={option.value} size="small" showIcon={false} />
+                  <AlertSeverityBadge severity={option.value} size="small" />
                 </Option>
               ))}
             </Select>
@@ -419,7 +418,7 @@ export const AlertList: React.FC<AlertListProps> = ({
             <div style={{ marginBottom: 12 }}>
               <Checkbox
                 indeterminate={selectedAlerts.length > 0 && selectedAlerts.length < alerts.length}
-                checked={selectedAlerts.length === alerts.length}
+                checked={alerts.length > 0 && selectedAlerts.length === alerts.length}
                 onChange={selectAllAlerts}
               >
                 Tümünü Seç ({alerts.length} uyarı)
@@ -427,7 +426,7 @@ export const AlertList: React.FC<AlertListProps> = ({
             </div>
 
             <Row gutter={[16, 16]}>
-              {alerts.map(alert => (
+              {alerts.map((alert) => (
                 <Col xs={24} lg={12} xl={8} key={alert.id}>
                   <div style={{ position: 'relative' }}>
                     <Checkbox
@@ -458,6 +457,7 @@ export const AlertList: React.FC<AlertListProps> = ({
 
       {/* Toplu İşlem Modal */}
       <Modal
+        key={`bulk-modal-${bulkModalKey}`}
         title={`Toplu ${
           bulkActionType === 'resolve' ? 'Çözümleme' : 
           bulkActionType === 'dismiss' ? 'Yok Sayma' : 'Silme'
@@ -468,7 +468,6 @@ export const AlertList: React.FC<AlertListProps> = ({
         width={500}
       >
         <Form
-          form={bulkForm}
           layout="vertical"
           onFinish={executeBulkAction}
         >

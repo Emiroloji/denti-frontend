@@ -49,7 +49,7 @@ export const AlertActions: React.FC<AlertActionsProps> = ({
   } = useAlerts()
 
   const [resolveModalVisible, setResolveModalVisible] = useState(false)
-  const [resolveForm] = Form.useForm()
+  const [modalKey, setModalKey] = useState(0) // Modal'ı yeniden mount etmek için
 
   const handleResolve = async (values: { resolution_notes?: string }) => {
     try {
@@ -61,7 +61,8 @@ export const AlertActions: React.FC<AlertActionsProps> = ({
         }
       })
       setResolveModalVisible(false)
-      resolveForm.resetFields()
+      // Modal'ı yeniden mount et (form otomatik temizlenir)
+      setModalKey(prev => prev + 1)
     } catch (error) {
       console.error('Resolve error:', error)
     }
@@ -147,6 +148,7 @@ export const AlertActions: React.FC<AlertActionsProps> = ({
 
         {/* Çözümleme Modal */}
         <Modal
+          key={`resolve-modal-${modalKey}`}
           title="Uyarıyı Çözümle"
           open={resolveModalVisible}
           onCancel={() => setResolveModalVisible(false)}
@@ -154,7 +156,6 @@ export const AlertActions: React.FC<AlertActionsProps> = ({
           width={500}
         >
           <Form
-            form={resolveForm}
             layout="vertical"
             onFinish={handleResolve}
           >
@@ -240,6 +241,7 @@ export const AlertActions: React.FC<AlertActionsProps> = ({
 
       {/* Çözümleme Modal */}
       <Modal
+        key={`resolve-modal-bottom-${modalKey}`}
         title="Uyarıyı Çözümle"
         open={resolveModalVisible}
         onCancel={() => setResolveModalVisible(false)}
@@ -247,7 +249,6 @@ export const AlertActions: React.FC<AlertActionsProps> = ({
         width={500}
       >
         <Form
-          form={resolveForm}
           layout="vertical"
           onFinish={handleResolve}
         >
