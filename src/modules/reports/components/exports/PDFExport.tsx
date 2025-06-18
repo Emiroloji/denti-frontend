@@ -34,15 +34,28 @@ const { Text } = Typography
 
 interface PDFExportProps {
   reportType: 'stock' | 'supplier' | 'clinic' | 'trend'
-  reportData?: any
   filters?: Partial<ReportFilter>
   onExportComplete?: (filename: string) => void
   disabled?: boolean
 }
 
+interface FormValues {
+  fileName: string
+  layout: 'executive' | 'detailed' | 'presentation' | 'dashboard'
+  theme: 'professional' | 'medical' | 'modern' | 'minimal'
+  includeCharts: boolean
+  includeRawData: boolean
+  compression: boolean
+  chartQuality: 'standard' | 'high' | 'print'
+  pageOrientation: 'portrait' | 'landscape'
+  headerFooter: boolean
+  includeWatermark: boolean
+  sections: string[]
+  password?: string
+}
+
 export const PDFExport: React.FC<PDFExportProps> = ({
   reportType,
-  reportData,
   filters,
   onExportComplete,
   disabled = false
@@ -50,7 +63,7 @@ export const PDFExport: React.FC<PDFExportProps> = ({
   const [isModalVisible, setIsModalVisible] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
-  const [form] = Form.useForm()
+  const [form] = Form.useForm<FormValues>()
 
   // Default export configuration
   const defaultConfig: ExportConfig = {
@@ -127,7 +140,7 @@ export const PDFExport: React.FC<PDFExportProps> = ({
   }
 
   // Handle export
-  const handleExport = async (values: any) => {
+  const handleExport = async (values: FormValues) => {
     setIsExporting(true)
     setExportProgress(0)
 
@@ -186,8 +199,11 @@ export const PDFExport: React.FC<PDFExportProps> = ({
       onExportComplete?.(filename)
       setIsModalVisible(false)
 
-    } catch (error: any) {
-      message.error(error.response?.data?.message || 'PDF export işlemi başarısız!')
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error 
+        ? error.message || 'PDF export işlemi başarısız!'
+        : 'PDF export işlemi başarısız!'
+      message.error(errorMessage)
       console.error('PDF export error:', error)
     } finally {
       setIsExporting(false)
@@ -482,7 +498,18 @@ export const PDFExport: React.FC<PDFExportProps> = ({
                   icon={<SettingOutlined />}
                   onClick={() => {
                     form.resetFields()
-                    form.setFieldsValue(defaultConfig)
+                    const resetValues = {
+                      fileName: defaultConfig.fileName,
+                      layout: 'detailed' as const,
+                      theme: 'professional' as const,
+                      includeCharts: true,
+                      includeRawData: false,
+                      compression: true,
+                      chartQuality: 'high' as const,
+                      pageOrientation: 'portrait' as const,
+                      headerFooter: true
+                    }
+                    form.setFieldsValue(resetValues)
                   }}
                   disabled={isExporting}
                 >
@@ -523,50 +550,4 @@ export const PDFExport: React.FC<PDFExportProps> = ({
       </Modal>
     </>
   )
-}
-
-// Quick PDF export function
-export const quickPDFExport = async (
-  reportType: 'stock' | 'supplier' | 'clinic' | 'trend',
-  filters?: Partial<ReportFilter>,
-  filename?: string,
-  layout: 'executive' | 'detailed' | 'presentation' | 'dashboard' = 'executive'
-) => {
-  try {
-    const exportOptions: ExportOptions = {
-      fileName: filename || `${reportType}_report_${dayjs().format('YYYY-MM-DD')}`,
-      includeCharts: true,
-      includeRawData: false,
-      compression: true,
-      format: 'pdf'
-    }
-
-    const pdfOptions = {
-      layout,
-      theme: 'professional',
-      chartQuality: 'high',
-      pageOrientation: 'portrait',
-      headerFooter: true
-    }
-
-    const blob = await exportApi.exportToPdf(reportType, { ...exportOptions, ...pdfOptions })
-    const fullFilename = `${exportOptions.fileName}.pdf`
-    
-    // Download file
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = fullFilename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-
-    message.success('PDF dosyası başarıyla indirildi!')
-    
-    return fullFilename
-  } catch (error: any) {
-    message.error('PDF export işlemi başarısız!')
-    throw error
-  }
 }

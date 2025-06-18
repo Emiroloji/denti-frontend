@@ -27,53 +27,60 @@ import {
   SettingOutlined
 } from '@ant-design/icons'
 import dayjs, { Dayjs } from 'dayjs'
-import type { ReportFilter, DateRangePreset } from '../../types/reports.types'
+import type { ReportFilter } from '../../types/reports.types'
 
 const { RangePicker } = DatePicker
 const { Title, Text } = Typography
 const { Option } = Select
 
 // Tarih aralığı preset'leri
+interface DateRangePreset {
+  label: string
+  key: string
+  startDate: string
+  endDate: string
+}
+
 const DATE_PRESETS: DateRangePreset[] = [
   {
     label: 'Bugün',
-    value: 'today',
+    key: 'today',
     startDate: dayjs().startOf('day').format('YYYY-MM-DD'),
     endDate: dayjs().endOf('day').format('YYYY-MM-DD')
   },
   {
     label: 'Bu Hafta',
-    value: 'thisWeek',
+    key: 'thisWeek',
     startDate: dayjs().startOf('week').format('YYYY-MM-DD'),
     endDate: dayjs().endOf('week').format('YYYY-MM-DD')
   },
   {
     label: 'Bu Ay',
-    value: 'thisMonth',
+    key: 'thisMonth',
     startDate: dayjs().startOf('month').format('YYYY-MM-DD'),
     endDate: dayjs().endOf('month').format('YYYY-MM-DD')
   },
   {
     label: 'Geçen Ay',
-    value: 'lastMonth',
+    key: 'lastMonth',
     startDate: dayjs().subtract(1, 'month').startOf('month').format('YYYY-MM-DD'),
     endDate: dayjs().subtract(1, 'month').endOf('month').format('YYYY-MM-DD')
   },
   {
     label: 'Son 30 Gün',
-    value: 'last30Days',
+    key: 'last30Days',
     startDate: dayjs().subtract(30, 'days').format('YYYY-MM-DD'),
     endDate: dayjs().format('YYYY-MM-DD')
   },
   {
     label: 'Son 3 Ay',
-    value: 'last3Months',
+    key: 'last3Months',
     startDate: dayjs().subtract(3, 'months').format('YYYY-MM-DD'),
     endDate: dayjs().format('YYYY-MM-DD')
   },
   {
     label: 'Bu Yıl',
-    value: 'thisYear',
+    key: 'thisYear',
     startDate: dayjs().startOf('year').format('YYYY-MM-DD'),
     endDate: dayjs().endOf('year').format('YYYY-MM-DD')
   }
@@ -85,7 +92,7 @@ const STOCK_STATUS_OPTIONS = [
   { label: 'Normal', value: 'normal' },
   { label: 'Düşük', value: 'low' },
   { label: 'Kritik', value: 'critical' },
-  { label: 'Bitti', value: 'outOfStock' }
+  { label: 'Bitti', value: 'out_of_stock' }
 ]
 
 // Mock data - Gerçek uygulamada API'den gelecek
@@ -164,8 +171,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
 
   // Tarih aralığı değişikliği
   const handleDateRangeChange = (
-    dates: [Dayjs | null, Dayjs | null] | null,
-    _dateStrings: [string, string]
+    dates: [Dayjs | null, Dayjs | null] | null
   ) => {
     if (dates && dates[0] && dates[1]) {
       onFiltersChange({
@@ -222,7 +228,7 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
   const handleStockStatusChange = (status: string) => {
     onFiltersChange({
       ...filters,
-      stockStatus: status as ReportFilter['stockStatus']
+      stockStatus: status === 'all' ? undefined : status as ReportFilter['stockStatus']
     })
   }
 
@@ -418,13 +424,13 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
                   disabled={loading}
                   onChange={(value) => {
                     if (value) {
-                      const preset = DATE_PRESETS.find(p => p.value === value)
+                      const preset = DATE_PRESETS.find(p => p.key === value)
                       if (preset) handlePresetSelect(preset)
                     }
                   }}
                 >
                   {DATE_PRESETS.map(preset => (
-                    <Option key={preset.value} value={preset.value}>
+                    <Option key={preset.key} value={preset.key}>
                       <CalendarOutlined style={{ marginRight: 8 }} />
                       {preset.label}
                     </Option>
@@ -530,11 +536,11 @@ export const ReportFilters: React.FC<ReportFiltersProps> = ({
               <div style={{ marginTop: 8 }}>
                 <Space wrap>
                   {filters.startDate && filters.endDate && (
-                    <Tag closable onClose={() => handleDateRangeChange(null, ['', ''])}>
+                    <Tag closable onClose={() => handleDateRangeChange(null)}>
                       📅 {dayjs(filters.startDate).format('DD.MM.YYYY')} - {dayjs(filters.endDate).format('DD.MM.YYYY')}
                     </Tag>
                   )}
-                  {filters.stockStatus && filters.stockStatus !== 'all' && (
+                  {filters.stockStatus && (
                     <Tag closable onClose={() => handleStockStatusChange('all')}>
                       📦 {STOCK_STATUS_OPTIONS.find(o => o.value === filters.stockStatus)?.label}
                     </Tag>

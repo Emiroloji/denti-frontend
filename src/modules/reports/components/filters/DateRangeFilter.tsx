@@ -1,6 +1,6 @@
 // src/modules/reports/components/filters/DateRangeFilter.tsx
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Card, Select, DatePicker, Space, Button, Tag, Tooltip, Alert } from 'antd'
 import { CalendarOutlined, ClockCircleOutlined, WarningOutlined } from '@ant-design/icons'
 import dayjs, { Dayjs } from 'dayjs'
@@ -118,8 +118,8 @@ const getDatePresets = (): DatePreset[] => {
     {
       label: 'Bu Çeyrek',
       value: 'this-quarter',
-      startDate: now.startOf('quarter' as any),
-      endDate: now.endOf('quarter' as any),
+      startDate: now.startOf('quarter'),
+      endDate: now.endOf('quarter'),
       description: 'Çeyrek yıl başından bugüne',
       color: 'volcano'
     },
@@ -151,7 +151,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
   const [showCustomPicker, setShowCustomPicker] = useState(false)
   const [validationError, setValidationError] = useState<string>('')
 
-  const datePresets = getDatePresets()
+  const datePresets = useMemo(() => getDatePresets(), [])
 
   // =============================================================================
   // EFFECTS
@@ -178,7 +178,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
         setSelectedPreset('custom')
       }
     }
-  }, [value?.startDate, value?.endDate])
+  }, [value?.startDate, value?.endDate, datePresets])
 
   // =============================================================================
   // HANDLERS
@@ -221,8 +221,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
   }
 
   const handleCustomRangeChange = (
-    dates: [Dayjs | null, Dayjs | null] | null,
-    dateStrings: [string, string]
+    dates: [Dayjs | null, Dayjs | null] | null
   ) => {
     setValidationError('')
     

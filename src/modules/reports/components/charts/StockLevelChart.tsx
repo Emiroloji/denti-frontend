@@ -52,6 +52,13 @@ interface StockLevelChartProps {
   className?: string
 }
 
+interface ChartDataItem {
+  name: string
+  value: number
+  color: string
+  percentage: number
+}
+
 export const StockLevelChart: React.FC<StockLevelChartProps> = ({
   filters,
   height = 400,
@@ -62,51 +69,57 @@ export const StockLevelChart: React.FC<StockLevelChartProps> = ({
   // Düzeltilmiş hook kullanımı
   const { data, isLoading, isError, error } = useStockReports(filters)
 
-  // Chart data hazırlama
-  const chartData = React.useMemo(() => {
-    if (!data) return []
+  // Chart data hazırlama - API interface'e göre summary altındaki veriler
+  const chartData = React.useMemo((): ChartDataItem[] => {
+    if (!data?.summary) return []
+
+    // API interface'e göre summary altındaki property'leri kullanıyoruz
+    const { summary } = data
+    const total = summary.total || (summary.normal + summary.low + summary.critical + summary.outOfStock)
 
     return [
       {
         name: 'Normal',
-        value: data.normalLevel,
+        value: summary.normal || 0,
         color: STOCK_COLORS.normal,
-        percentage: data.totalStocks > 0 ? Math.round((data.normalLevel / data.totalStocks) * 100) : 0
+        percentage: total > 0 ? Math.round(((summary.normal || 0) / total) * 100) : 0
       },
       {
         name: 'Düşük',
-        value: data.lowLevel,
+        value: summary.low || 0,
         color: STOCK_COLORS.low,
-        percentage: data.totalStocks > 0 ? Math.round((data.lowLevel / data.totalStocks) * 100) : 0
+        percentage: total > 0 ? Math.round(((summary.low || 0) / total) * 100) : 0
       },
       {
         name: 'Kritik',
-        value: data.criticalLevel,
+        value: summary.critical || 0,
         color: STOCK_COLORS.critical,
-        percentage: data.totalStocks > 0 ? Math.round((data.criticalLevel / data.totalStocks) * 100) : 0
+        percentage: total > 0 ? Math.round(((summary.critical || 0) / total) * 100) : 0
       },
       {
         name: 'Bitti',
-        value: data.outOfStock,
+        value: summary.outOfStock || 0,
         color: STOCK_COLORS.outOfStock,
-        percentage: data.totalStocks > 0 ? Math.round((data.outOfStock / data.totalStocks) * 100) : 0
+        percentage: total > 0 ? Math.round(((summary.outOfStock || 0) / total) * 100) : 0
       }
     ]
   }, [data])
 
   // Pie chart data (kritik durumlar için)
   const pieChartData = React.useMemo(() => {
-    if (!data) return []
+    if (!data?.summary) return []
+
+    const { summary } = data
 
     const criticalData = [
       {
         name: 'Normal Stok',
-        value: data.normalLevel,
+        value: summary.normal || 0,
         color: STOCK_COLORS.normal
       },
       {
         name: 'Dikkat Gerekli',
-        value: data.lowLevel + data.criticalLevel + data.outOfStock,
+        value: (summary.low || 0) + (summary.critical || 0) + (summary.outOfStock || 0),
         color: '#ff7875'
       }
     ]
@@ -116,11 +129,16 @@ export const StockLevelChart: React.FC<StockLevelChartProps> = ({
 
   // Sağlık skoru hesaplama
   const healthScore = React.useMemo(() => {
-    if (!data || data.totalStocks === 0) return 0
+    if (!data?.summary) return 0
 
-    const score = Math.round((data.normalLevel / data.totalStocks) * 100)
+    const { summary } = data
+    const total = summary.total || chartData.reduce((sum, item) => sum + item.value, 0)
+    
+    if (total === 0) return 0
+
+    const score = Math.round(((summary.normal || 0) / total) * 100)
     return Math.max(0, Math.min(100, score))
-  }, [data])
+  }, [data, chartData])
 
   // Sağlık durumu
   const healthStatus = React.useMemo(() => {
@@ -130,8 +148,24 @@ export const StockLevelChart: React.FC<StockLevelChartProps> = ({
     return { status: 'critical', color: '#ff4d4f', text: 'Kritik' }
   }, [healthScore])
 
+  // Total items calculation
+  const totalItems = React.useMemo(() => {
+    return data?.summary?.total || chartData.reduce((sum, item) => sum + item.value, 0)
+  }, [data, chartData])
+
+  // Critical stock values
+  const criticalStockValues = React.useMemo(() => {
+    if (!data?.summary) return { critical: 0, outOfStock: 0 }
+
+    const { summary } = data
+    return {
+      critical: summary.critical || 0,
+      outOfStock: summary.outOfStock || 0
+    }
+  }, [data])
+
   // Custom tooltip
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: any[] }) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { payload: ChartDataItem }[] }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload
       return (
@@ -176,7 +210,7 @@ export const StockLevelChart: React.FC<StockLevelChartProps> = ({
   }
 
   // No data state
-  if (!data || data.totalStocks === 0) {
+  if (!data || totalItems === 0) {
     return (
       <Card className={className} title={title}>
         <Empty description="Stok verisi bulunamadı" />
@@ -194,7 +228,7 @@ export const StockLevelChart: React.FC<StockLevelChartProps> = ({
             <Card size="small" className="text-center">
               <Statistic
                 title="Toplam Stok Kalemi"
-                value={data.totalStocks}
+                value={totalItems}
                 prefix={<InfoCircleOutlined />}
                 valueStyle={{ color: '#1890ff' }}
               />
@@ -280,7 +314,7 @@ export const StockLevelChart: React.FC<StockLevelChartProps> = ({
                         innerRadius={40}
                         outerRadius={80}
                         dataKey="value"
-                        label={({ percentage }: { percentage: number }) => `%${percentage.toFixed(0)}`}
+                        label={({ value, name }: { value: number; name: string }) => `${name}: %${((value / totalItems) * 100).toFixed(0)}`}
                       >
                         {pieChartData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -298,7 +332,7 @@ export const StockLevelChart: React.FC<StockLevelChartProps> = ({
       </Row>
 
       {/* Kritik Uyarılar */}
-      {(data.criticalLevel > 0 || data.outOfStock > 0) && (
+      {(criticalStockValues.critical > 0 || criticalStockValues.outOfStock > 0) && (
         <Row style={{ marginTop: 16 }}>
           <Col span={24}>
             <Card 
@@ -314,20 +348,20 @@ export const StockLevelChart: React.FC<StockLevelChartProps> = ({
                   <Text strong style={{ color: '#ff4d4f' }}>Acil Dikkat Gereken Durumlar</Text>
                 </Space>
                 <Row gutter={16}>
-                  {data.criticalLevel > 0 && (
+                  {criticalStockValues.critical > 0 && (
                     <Col span={12}>
                       <Tooltip title="Bu ürünler kritik stok seviyesinde, acil temin edilmeli">
                         <Tag color="error">
-                          {data.criticalLevel} ürün kritik seviyede
+                          {criticalStockValues.critical} ürün kritik seviyede
                         </Tag>
                       </Tooltip>
                     </Col>
                   )}
-                  {data.outOfStock > 0 && (
+                  {criticalStockValues.outOfStock > 0 && (
                     <Col span={12}>
                       <Tooltip title="Bu ürünlerin stoğu tamamen bitmiş">
                         <Tag color="default">
-                          {data.outOfStock} ürün stokta yok
+                          {criticalStockValues.outOfStock} ürün stokta yok
                         </Tag>
                       </Tooltip>
                     </Col>

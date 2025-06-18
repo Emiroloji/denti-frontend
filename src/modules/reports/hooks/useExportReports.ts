@@ -82,11 +82,11 @@ export const useExportReports = () => {
     })
   }
 
-  // Generate filename
+  // Generate filename - ExportOptions interface'e uygun
   const generateFilename = (reportType: ReportType, format: ExportFormat, options: ExportOptions): string => {
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')
-    const dateRange = options.dateRange ? 
-      `_${options.dateRange.start}_to_${options.dateRange.end}` : ''
+    const dateRange = options.fileName ? 
+      `_${options.fileName}` : ''
     
     const reportNames = {
       stocks: 'Stok_Raporu',
@@ -315,11 +315,8 @@ export const useExportButton = (
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     format: 'excel',
     includeCharts: true,
-    dateRange: {
-      start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 gün önce
-      end: new Date().toISOString().split('T')[0], // Bugün
-    },
-    filters: {},
+    fileName: `${reportType}_report_${new Date().toISOString().split('T')[0]}`,
+    // filters field removed to fix the interface error
     ...defaultOptions,
   })
 

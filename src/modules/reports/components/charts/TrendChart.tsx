@@ -53,6 +53,14 @@ interface TrendChartProps {
 type ChartType = 'line' | 'area' | 'combined'
 type TimeRange = 'daily' | 'weekly' | 'monthly' | 'quarterly'
 
+interface ChartDataItem {
+  label: string
+  value: number
+  actualValue: number | null
+  forecastValue: number | null
+  isForecast: boolean
+}
+
 // =============================================================================
 // CONSTANTS
 // =============================================================================
@@ -93,24 +101,28 @@ export const TrendChart: React.FC<TrendChartProps> = ({
   // COMPUTED VALUES
   // =============================================================================
 
-  const chartData = useMemo(() => {
+  const chartData = useMemo((): ChartDataItem[] => {
     if (!trendData) return []
 
+    // Trends data mapping
     const combinedData = trendData.trends.map((trend, index) => {
-      const forecast = trendData.forecasts[index]
+      const forecastItem = trendData.forecast[index]
       return {
-        ...trend,
+        label: trend.label || `Period ${index + 1}`,
+        value: trend.value,
         actualValue: trend.value,
-        forecastValue: forecast?.value || null,
+        forecastValue: forecastItem?.predicted || null,
         isForecast: false
       }
     })
 
-    if (showForecastData) {
-      const forecastData = trendData.forecasts.map(forecast => ({
-        ...forecast,
+    if (showForecastData && trendData.forecast) {
+      // Forecast data mapping
+      const forecastData = trendData.forecast.map((forecast, index) => ({
+        label: forecast.label || `Forecast ${index + 1}`,
+        value: forecast.predicted,
         actualValue: null,
-        forecastValue: forecast.value,
+        forecastValue: forecast.predicted,
         isForecast: true
       }))
       
@@ -121,13 +133,27 @@ export const TrendChart: React.FC<TrendChartProps> = ({
   }, [trendData, showForecastData])
 
   const trendIndicators = useMemo(() => {
-    if (!trendData?.indicators) return null
+    if (!trendData) return null
 
-    const { direction, percentage, recommendation } = trendData.indicators
+    // API'de summary field'ı yok, trends data'sından summary oluşturuyoruz
+    const trends = trendData.trends || []
+    if (trends.length < 2) return null
+
+    const latestValue = trends[trends.length - 1]?.value || 0
+    const previousValue = trends[trends.length - 2]?.value || 0
+    const change = latestValue - previousValue
+    const changePercent = previousValue > 0 ? (change / previousValue) * 100 : 0
+
+    const direction = change > 0 ? 'up' : change < 0 ? 'down' : 'stable'
+    const recommendation = direction === 'up' 
+      ? 'Pozitif trend devam ediyor, stok planlaması güncellenebilir'
+      : direction === 'down'
+      ? 'Azalan trend gözlemleniyor, analiz yapılması önerilir'
+      : 'Stabil durum, mevcut strateji sürdürülebilir'
 
     return {
       direction,
-      percentage: Math.abs(percentage),
+      percentage: Math.abs(changePercent),
       isPositive: direction === 'up',
       isNegative: direction === 'down',
       isStable: direction === 'stable',

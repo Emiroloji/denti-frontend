@@ -14,7 +14,8 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  Tooltip as RechartsTooltip
+  Tooltip as RechartsTooltip,
+  TooltipProps
 } from 'recharts'
 import { 
   InfoCircleOutlined, 
@@ -45,6 +46,17 @@ interface ChartDataItem {
   [key: string]: string | number
 }
 
+// Custom Tooltip Props
+interface CustomTooltipProps extends TooltipProps<number, string> {
+  active?: boolean
+  payload?: Array<{
+    dataKey: string
+    value: number
+    color: string
+  }>
+  label?: string
+}
+
 export const UsageChart: React.FC<UsageChartProps> = ({
   filters,
   height = 400,
@@ -59,6 +71,23 @@ export const UsageChart: React.FC<UsageChartProps> = ({
 
   // Fetch usage data
   const { isLoading, error } = useStockUsageReport(filters)
+
+  // Available categories
+  const categories = useMemo(() => [
+    'Ortodonti', 
+    'Periodontoloji', 
+    'Endodonti', 
+    'Protez', 
+    'Pedodonti'
+  ], [])
+
+  const categoryColors = {
+    'Ortodonti': '#1890ff',
+    'Periodontoloji': '#52c41a',
+    'Endodonti': '#faad14',
+    'Protez': '#ff4d4f',
+    'Pedodonti': '#722ed1'
+  }
 
   // Mock time series data - Bu gerçek API'den gelecek
   const mockTimeSeriesData = useMemo(() => {
@@ -84,17 +113,7 @@ export const UsageChart: React.FC<UsageChartProps> = ({
     }
 
     return generateData()
-  }, [groupBy])
-
-  // Available categories
-  const categories = ['Ortodonti', 'Periodontoloji', 'Endodonti', 'Protez', 'Pedodonti']
-  const categoryColors = {
-    'Ortodonti': '#1890ff',
-    'Periodontoloji': '#52c41a',
-    'Endodonti': '#faad14',
-    'Protez': '#ff4d4f',
-    'Pedodonti': '#722ed1'
-  }
+  }, [])
 
   // Process data based on groupBy
   const processedData = useMemo(() => {
@@ -132,7 +151,7 @@ export const UsageChart: React.FC<UsageChartProps> = ({
   }, [mockTimeSeriesData, groupBy, categories])
 
   // Custom tooltip
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
         <div style={{
@@ -144,7 +163,7 @@ export const UsageChart: React.FC<UsageChartProps> = ({
         }}>
           <Text strong>{label}</Text>
           <br />
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index) => (
             <div key={index}>
               <Text style={{ color: entry.color }}>
                 {entry.dataKey}: <Text strong>{entry.value} adet</Text>

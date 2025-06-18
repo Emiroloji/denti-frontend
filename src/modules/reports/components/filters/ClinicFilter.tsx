@@ -74,7 +74,7 @@ export const ClinicFilter: React.FC<ClinicFilterProps> = ({
 
     const groups: Record<string, SpecialtyGroup> = {}
 
-    clinics.forEach(clinic => {
+    clinics.forEach((clinic: Clinic) => {
       const specialtyCode = clinic.specialty_code || 'OTHER'
       const config = specialtyConfigs[specialtyCode] || { name: 'Diğer', color: 'default' }
 
@@ -221,7 +221,7 @@ export const ClinicFilter: React.FC<ClinicFilterProps> = ({
     }
 
     return specialtyGroups.map(group => {
-      const groupClinics = group.clinics.filter(clinic => 
+      const groupClinics = group.clinics.filter(() => 
         selectedSpecialties.length === 0 || selectedSpecialties.includes(group.code)
       )
 
@@ -345,11 +345,6 @@ export const ClinicFilter: React.FC<ClinicFilterProps> = ({
           style={{ width: '100%' }}
           allowClear
           showSearch
-          optionFilterProp="children"
-          filterOption={(input, option) => {
-            const clinic = availableClinics.find(c => c.id === option?.value)
-            return clinic?.name.toLowerCase().includes(input.toLowerCase()) || false
-          }}
         >
           {renderGroupedOptions()}
         </Select>

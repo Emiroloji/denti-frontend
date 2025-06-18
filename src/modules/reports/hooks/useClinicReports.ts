@@ -1,6 +1,8 @@
-// src/modules/reports/hooks/useClinicReports.ts
+// =============================================================================
+// src/modules/reports/hooks/useClinicReports.ts (fixed)
+// =============================================================================
 
-import { useQuery, UseQueryResult } from '@tanstack/react-query'
+import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { message } from 'antd'
 import { reportsApi } from '../services/reportsApi'
 import type {
@@ -12,317 +14,240 @@ import type {
   ClinicComparisonData
 } from '../types/reports.types'
 
-// =============================================================================
-// MAIN CLINIC REPORTS HOOK
-// =============================================================================
+// -----------------------------------------------------------------------------
+// Internal helper types (raw shapes expected from API)
+// -----------------------------------------------------------------------------
+interface RawClinicComparisonItem {
+  id: number
+  name: string
+  totalConsumption?: number
+  efficiency?: number
+  stockValue?: number
+  alertCount?: number
+}
 
-export const useClinicReports = (filters?: ReportFilter) => {
-  return useQuery({
+interface RawClinicConsumptionItem {
+  id: number
+  name: string
+  totalConsumption?: number
+  totalValue?: number
+  avgDailyUsage?: number
+  mostUsedCategory?: string
+  efficiency?: number
+}
+
+// -----------------------------------------------------------------------------
+// Raw stock data interface
+// -----------------------------------------------------------------------------
+interface RawStockData {
+  clinicName?: string
+  totalItems?: number
+  totalValue?: number
+  lowStockCount?: number
+  criticalStockCount?: number
+}
+
+// =============================================================================
+// 1) MAIN CLINIC REPORTS HOOK
+// =============================================================================
+export const useClinicReports = (filters?: ReportFilter) =>
+  useQuery({
     queryKey: ['clinic-reports', 'consumption', filters],
-    queryFn: () => reportsApi.clinics.getConsumptionReport(filters),
-    select: (data: ReportsApiResponse<ClinicConsumptionReport>) => data.data,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    queryFn : () => reportsApi.clinics.getConsumptionReport(filters),
+    select  : (d: ReportsApiResponse<ClinicConsumptionReport>) => d.data,
+    staleTime: 5 * 60 * 1_000,
     refetchOnWindowFocus: false
   })
-}
 
 // =============================================================================
-// CLINIC STOCK DATA HOOK
+// 2) CLINIC STOCK DATA HOOK
 // =============================================================================
-
-export const useClinicStockData = (clinicId: number, filters?: ReportFilter): UseQueryResult<ClinicStockData, Error> => {
-  return useQuery({
+export const useClinicStockData = (
+  clinicId: number,
+  filters?: ReportFilter
+): UseQueryResult<ClinicStockData, Error> =>
+  useQuery({
     queryKey: ['clinic-reports', 'stock-data', clinicId, filters],
-    queryFn: async () => {
-      const response = await reportsApi.clinics.getStockReport(clinicId, filters)
-      
-      // Transform response to ClinicStockData format
-      const transformedData: ClinicStockData = {
-        clinicId: clinicId,
-        clinicName: response.data.clinicName || 'Bilinmeyen Klinik',
-        totalItems: response.data.totalItems || 0,
-        totalValue: response.data.totalValue || 0,
-        lowStockCount: response.data.lowStockCount || 0,
-        criticalStockCount: response.data.criticalStockCount || 0
-      }
-
-      return transformedData
+    enabled : Boolean(clinicId),
+    queryFn : async (): Promise<ClinicStockData> => {
+      const { data } = await reportsApi.clinics.getStockReport(clinicId, filters) as { data: RawStockData }
+      return {
+        clinicId,
+        clinicName        : data.clinicName ?? 'Bilinmeyen Klinik',
+        totalStock        : data.totalItems ?? 0,
+        totalValue        : data.totalValue ?? 0,
+        lowStock          : data.lowStockCount ?? 0,
+        criticalStock     : data.criticalStockCount ?? 0
+      } as ClinicStockData
     },
-    enabled: !!clinicId,
-    staleTime: 1000 * 60 * 3,
+    staleTime: 3 * 60 * 1_000,
     refetchOnWindowFocus: false
   })
-}
 
 // =============================================================================
-// CLINIC COMPARISON HOOK
+// 3) CLINIC COMPARISON HOOK
 // =============================================================================
-
-export const useClinicComparison = (clinicIds: number[], filters?: ReportFilter): UseQueryResult<ClinicComparisonData[], Error> => {
-  return useQuery({
+export const useClinicComparison = (
+  clinicIds: number[],
+  filters?: ReportFilter
+): UseQueryResult<ClinicComparisonData[], Error> =>
+  useQuery({
     queryKey: ['clinic-reports', 'comparison', clinicIds, filters],
-    queryFn: async () => {
+    enabled : clinicIds.length > 0,
+    queryFn : async () => {
       if (clinicIds.length === 0) return []
-      
-      const response = await reportsApi.clinics.getComparison(clinicIds, filters)
-      
-      // Transform to comparison format
-      const transformedData: ClinicComparisonData[] = response.data.map((clinic: any) => ({
-        clinicId: clinic.id,
-        clinicName: clinic.name,
-        metrics: {
-          consumption: clinic.totalConsumption || 0,
-          efficiency: clinic.efficiency || 0,
-          stockValue: clinic.stockValue || 0,
-          alertCount: clinic.alertCount || 0
+      const { data } = await reportsApi.clinics.getComparison(clinicIds, filters)
+      return (data as RawClinicComparisonItem[]).map<ClinicComparisonData>(c => ({
+        clinicId  : c.id,
+        clinicName: c.name,
+        metrics   : {
+          totalConsumption: c.totalConsumption ?? 0,
+          efficiency : c.efficiency ?? 0,
+          totalValue : c.stockValue ?? 0,
+          stockCount : c.alertCount ?? 0
         }
       }))
-
-      return transformedData
     },
-    enabled: clinicIds.length > 0,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 5 * 60 * 1_000,
     refetchOnWindowFocus: false
   })
-}
 
 // =============================================================================
-// CLINIC USAGE TREND HOOK
+// 4) SIMPLE PASS‑THROUGH REPORT HOOKS (USAGE/EFFICIENCY/COST/TURNOVER)
 // =============================================================================
-
-export const useClinicUsageTrend = (filters?: ReportFilter) => {
-  return useQuery({
+export const useClinicUsageTrend = (filters?: ReportFilter) =>
+  useQuery({
     queryKey: ['clinic-reports', 'usage-trend', filters],
-    queryFn: () => reportsApi.clinics.getUsageTrend(filters),
-    select: (data: any) => data.data,
-    staleTime: 1000 * 60 * 5,
+    queryFn : () => reportsApi.clinics.getUsageTrend(filters),
+    select  : (d: ReportsApiResponse<unknown>) => d.data,
+    staleTime: 5 * 60 * 1_000,
     refetchOnWindowFocus: false
   })
-}
 
-// =============================================================================
-// CLINIC EFFICIENCY REPORT HOOK
-// =============================================================================
-
-export const useClinicEfficiencyReport = (filters?: ReportFilter) => {
-  return useQuery({
+export const useClinicEfficiencyReport = (filters?: ReportFilter) =>
+  useQuery({
     queryKey: ['clinic-reports', 'efficiency', filters],
-    queryFn: () => reportsApi.clinics.getEfficiencyReport(filters),
-    select: (data: any) => data.data,
-    staleTime: 1000 * 60 * 5,
+    queryFn : () => reportsApi.clinics.getEfficiencyReport(filters),
+    select  : (d: ReportsApiResponse<unknown>) => d.data,
+    staleTime: 5 * 60 * 1_000,
     refetchOnWindowFocus: false
   })
-}
 
-// =============================================================================
-// CLINIC COST ANALYSIS HOOK
-// =============================================================================
-
-export const useClinicCostAnalysis = (filters?: ReportFilter) => {
-  return useQuery({
+export const useClinicCostAnalysis = (filters?: ReportFilter) =>
+  useQuery({
     queryKey: ['clinic-reports', 'cost-analysis', filters],
-    queryFn: () => reportsApi.clinics.getCostAnalysis(filters),
-    select: (data: any) => data.data,
-    staleTime: 1000 * 60 * 5,
+    queryFn : () => reportsApi.clinics.getCostAnalysis(filters),
+    select  : (d: ReportsApiResponse<unknown>) => d.data,
+    staleTime: 5 * 60 * 1_000,
     refetchOnWindowFocus: false
   })
-}
 
-// =============================================================================
-// CLINIC TURNOVER RATE HOOK
-// =============================================================================
-
-export const useClinicTurnoverRate = (filters?: ReportFilter) => {
-  return useQuery({
+export const useClinicTurnoverRate = (filters?: ReportFilter) =>
+  useQuery({
     queryKey: ['clinic-reports', 'turnover-rate', filters],
-    queryFn: () => reportsApi.clinics.getTurnoverRate(filters),
-    select: (data: any) => data.data,
-    staleTime: 1000 * 60 * 5,
+    queryFn : () => reportsApi.clinics.getTurnoverRate(filters),
+    select  : (d: ReportsApiResponse<unknown>) => d.data,
+    staleTime: 5 * 60 * 1_000,
     refetchOnWindowFocus: false
   })
-}
 
 // =============================================================================
-// DOCTOR USAGE REPORT HOOK
+// 5) DOCTOR USAGE REPORT HOOK
 // =============================================================================
-
-export const useDoctorUsageReport = (filters?: ReportFilter) => {
-  return useQuery({
+export const useDoctorUsageReport = (filters?: ReportFilter) =>
+  useQuery({
     queryKey: ['clinic-reports', 'doctor-usage', filters],
-    queryFn: () => reportsApi.clinics.getDoctorUsage(filters),
-    select: (data: ReportsApiResponse<DoctorUsageReport>) => data.data,
-    staleTime: 1000 * 60 * 5,
+    queryFn : () => reportsApi.clinics.getDoctorUsage(filters),
+    select  : (d: ReportsApiResponse<DoctorUsageReport>) => d.data,
+    staleTime: 5 * 60 * 1_000,
     refetchOnWindowFocus: false
   })
-}
 
 // =============================================================================
-// CLINIC SUMMARY STATISTICS HOOK
+// 6) CLINIC SUMMARY STATISTICS HOOK
 // =============================================================================
-
-export const useClinicSummaryStats = (filters?: ReportFilter) => {
-  return useQuery({
+export const useClinicSummaryStats = (filters?: ReportFilter) =>
+  useQuery({
     queryKey: ['clinic-reports', 'summary-stats', filters],
-    queryFn: async () => {
+    queryFn : async () => {
       try {
-        // Paralel API çağrıları
-        const [consumptionData, efficiencyData, costData] = await Promise.all([
+        const [consumptionD, costD] = await Promise.all([
           reportsApi.clinics.getConsumptionReport(filters),
-          reportsApi.clinics.getEfficiencyReport(filters),
           reportsApi.clinics.getCostAnalysis(filters)
         ])
 
-        const consumption = consumptionData.data
-        const efficiency = efficiencyData.data
-        const cost = costData.data
+        const consumption = consumptionD.data
+        const cost = costD.data
 
-        // Özet istatistikleri hesapla
-        const totalClinics = consumption.clinics?.length || 0
-        const totalConsumption = consumption.clinics?.reduce((sum: number, clinic: any) => sum + (clinic.totalConsumption || 0), 0) || 0
-        const avgEfficiency = totalClinics > 0 
-          ? efficiency.clinics?.reduce((sum: number, clinic: any) => sum + (clinic.efficiency || 0), 0) / totalClinics 
-          : 0
-        const totalCost = cost.clinics?.reduce((sum: number, clinic: any) => sum + (clinic.totalValue || 0), 0) || 0
+        const clinicRows = (consumption.clinics ?? []) as RawClinicConsumptionItem[]
+        const totalClinics = clinicRows.length
+        const totalConsumption = clinicRows.reduce((sum: number, c) => sum + (c.totalConsumption ?? 0), 0)
+        const avgEfficiency = totalClinics > 0 ? clinicRows.reduce((sum: number, c) => sum + (c.efficiency ?? 0), 0) / totalClinics : 0
+        const totalCost = (cost.clinics as { totalValue?: number }[] ?? []).reduce((sum: number, c) => sum + (c.totalValue ?? 0), 0)
 
-        // En iyi ve en kötü performans gösteren klinikler
-        const bestPerformer = consumption.clinics?.reduce((best: any, current: any) => 
-          (current.efficiency || 0) > (best.efficiency || 0) ? current : best
-        ) || null
+        const bestPerformer = clinicRows.reduce<RawClinicConsumptionItem | null>((best, curr) =>
+          (curr.efficiency ?? 0) > (best?.efficiency ?? 0) ? curr : best,
+          null
+        )
 
-        const worstPerformer = consumption.clinics?.reduce((worst: any, current: any) => 
-          (current.efficiency || 0) < (worst.efficiency || 0) ? current : worst
-        ) || null
+        const worstPerformer = clinicRows.reduce<RawClinicConsumptionItem | null>((worst, curr) =>
+          (curr.efficiency ?? 0) < (worst?.efficiency ?? 0) ? curr : worst,
+          null
+        )
 
-        // Top kategoriler
-        const topCategories = consumption.clinics?.map((clinic: any) => ({
-          name: clinic.name,
-          value: clinic.totalConsumption,
-          category: clinic.mostUsedCategory
-        })).sort((a: any, b: any) => b.value - a.value).slice(0, 5) || []
+        const topCategories = clinicRows
+          .map(c => ({ name: c.name, value: c.totalConsumption ?? 0, category: c.mostUsedCategory }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 5)
 
         return {
           totalClinics,
           totalConsumption,
           avgEfficiency: Math.round(avgEfficiency * 100) / 100,
           totalCost,
-          bestPerformer: bestPerformer ? {
-            id: bestPerformer.id,
-            name: bestPerformer.name,
-            totalConsumption: bestPerformer.totalConsumption,
-            totalValue: bestPerformer.totalValue,
-            avgDailyUsage: bestPerformer.avgDailyUsage,
-            mostUsedCategory: bestPerformer.mostUsedCategory,
-            efficiency: bestPerformer.efficiency
-          } : null,
-          worstPerformer: worstPerformer ? {
-            id: worstPerformer.id,
-            name: worstPerformer.name,
-            totalConsumption: worstPerformer.totalConsumption,
-            totalValue: worstPerformer.totalValue,
-            avgDailyUsage: worstPerformer.avgDailyUsage,
-            mostUsedCategory: worstPerformer.mostUsedCategory,
-            efficiency: worstPerformer.efficiency
-          } : null,
+          bestPerformer,
+          worstPerformer,
           topCategories,
-          monthlyTrend: consumption.comparison?.map((item: any) => ({
-            clinicName: item.clinicName,
-            thisMonth: item.thisMonth,
-            lastMonth: item.lastMonth,
-            change: item.change
-          })) || []
+          monthlyTrend: [] // API'den gelecek olan comparison verisi için placeholder
         }
-      } catch (error) {
-        console.error('Clinic summary stats error:', error)
+      } catch (err) {
+        console.error('Clinic summary stats error:', err)
         message.error('Klinik özet istatistikleri yüklenirken hata oluştu')
-        throw error
+        throw err
       }
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 5 * 60 * 1_000,
     refetchOnWindowFocus: false
   })
-}
 
 // =============================================================================
-// CLINIC PERFORMANCE COMPARISON HOOK
+// 7) CLINIC PERFORMANCE COMPARISON HOOK
 // =============================================================================
-
-export const useClinicPerformanceComparison = (filters?: ReportFilter) => {
-  return useQuery({
-    queryKey: ['clinic-reports', 'performance-comparison', filters],
-    queryFn: async () => {
+export const useClinicPerformanceComparison = (filters?: ReportFilter) =>
+  useQuery({
+    queryKey: [ 'clinic-reports', 'performance-comparison', filters],
+    queryFn : async () => {
       try {
-        const consumptionData = await reportsApi.clinics.getConsumptionReport(filters)
-        const consumption = consumptionData.data
-
-        if (!consumption.clinics || consumption.clinics.length === 0) {
-          return {
-            clinics: [],
-            averages: { consumption: 0, efficiency: 0, usage: 0, cost: 0 }
+        // Use the existing comparison endpoint since getPerformanceComparison doesn't exist
+        const { data } = await reportsApi.clinics.getComparison([], filters)
+        return (data as RawClinicComparisonItem[]).map<ClinicComparisonData>(c => ({
+          clinicId  : c.id,
+          clinicName: c.name,
+          metrics   : {
+            totalConsumption: c.totalConsumption ?? 0,
+            efficiency : c.efficiency ?? 0,
+            totalValue : c.stockValue ?? 0,
+            stockCount : c.alertCount ?? 0
           }
-        }
-
-        // Performance metrics hesapla
-        const clinics = consumption.clinics.map((clinic: any) => ({
-          id: clinic.id,
-          name: clinic.name,
-          consumption: clinic.totalConsumption || 0,
-          efficiency: clinic.efficiency || 0,
-          avgDailyUsage: clinic.avgDailyUsage || 0,
-          totalValue: clinic.totalValue || 0,
-          performanceScore: calculateClinicPerformanceScore(clinic)
         }))
-
-        // Ortalamalar
-        const averages = {
-          consumption: clinics.length > 0 ? clinics.reduce((sum, clinic) => sum + clinic.consumption, 0) / clinics.length : 0,
-          efficiency: clinics.length > 0 ? clinics.reduce((sum, clinic) => sum + clinic.efficiency, 0) / clinics.length : 0,
-          usage: clinics.length > 0 ? clinics.reduce((sum, clinic) => sum + clinic.avgDailyUsage, 0) / clinics.length : 0,
-          cost: clinics.length > 0 ? clinics.reduce((sum, clinic) => sum + clinic.totalValue, 0) / clinics.length : 0
-        }
-
-        return { clinics, averages }
-      } catch (error) {
-        console.error('Clinic performance comparison error:', error)
+      } catch (err) {
+        console.error('Clinic performance comparison error:', err)
         message.error('Klinik performans karşılaştırması yüklenirken hata oluştu')
-        throw error
+        throw err
       }
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 5 * 60 * 1_000,
     refetchOnWindowFocus: false
   })
-}
 
 // =============================================================================
-// UTILITY FUNCTIONS
-// =============================================================================
-
-const calculateClinicPerformanceScore = (clinic: any): number => {
-  // Klinik performans skoru hesaplama
-  const efficiencyWeight = 0.4
-  const consumptionWeight = 0.3
-  const usageWeight = 0.3
-
-  const efficiencyScore = Math.min(clinic.efficiency || 0, 100)
-  const consumptionScore = Math.min(((clinic.totalConsumption || 0) / 1000) * 10, 100)
-  const usageScore = Math.min(((clinic.avgDailyUsage || 0) / 50) * 100, 100)
-
-  return Math.round(
-    efficiencyScore * efficiencyWeight +
-    consumptionScore * consumptionWeight +
-    usageScore * usageWeight
-  )
-}
-
-// Export all hooks
-export default {
-  useClinicReports,
-  useClinicStockData,
-  useClinicComparison,
-  useClinicUsageTrend,
-  useClinicEfficiencyReport,
-  useClinicCostAnalysis,
-  useClinicTurnoverRate,
-  useDoctorUsageReport,
-  useClinicSummaryStats,
-  useClinicPerformanceComparison
-}

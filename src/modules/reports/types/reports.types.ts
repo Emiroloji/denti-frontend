@@ -1,152 +1,296 @@
 // src/modules/reports/types/reports.types.ts
 
-// Base Report Types
-export interface ReportFilter {
-  startDate?: string
-  endDate?: string
-  clinicId?: number
-  clinicIds?: number[]
-  supplierId?: number
-  supplierIds?: number[]
-  category?: string
-  categories?: string[]
-  stockStatus?: 'all' | 'low' | 'critical' | 'normal'
-  // Eklenen: DateRange desteği için
-  dateRange?: DateRange
-}
+// =============================================================================
+// BASE TYPES
+// =============================================================================
 
-// EKSİK: DateRange type'ı
 export interface DateRange {
   startDate: string
   endDate: string
 }
 
-// EKSİK: ExportConfig type'ı
+export interface DateRangePreset {
+  key: string
+  label: string
+  range: DateRange
+}
+
+export interface ReportFilter {
+  startDate?: string
+  endDate?: string
+  dateRange?: DateRange
+  clinicId?: number
+  clinicIds?: number[]
+  supplierId?: number
+  supplierIds?: number[]
+  category?: string
+  categories?: string[] // ✅ ADDED
+  stockStatus?: 'low' | 'critical' | 'normal' | 'out_of_stock'
+  search?: string
+}
+
+// =============================================================================
+// EXPORT CONFIG & OPTIONS
+// =============================================================================
+
 export interface ExportConfig {
   format: 'excel' | 'pdf' | 'csv'
   fileName?: string
-  includeCharts?: boolean
+  includeCharts: boolean
+  includeRawData?: boolean
   includeFilters?: boolean
-  password?: string
   compression?: boolean
-  quality?: 'low' | 'medium' | 'high'
+  quality?: 'low' | 'medium' | 'high' | 'print'
   layout?: 'portrait' | 'landscape'
   theme?: 'professional' | 'medical' | 'modern' | 'minimal'
-  watermark?: string
-  customFields?: Record<string, any>
 }
+
+export interface ExportOptions {
+  fileName?: string
+  format: 'excel' | 'pdf' | 'csv' | 'xlsx' | 'xls'
+  includeCharts?: boolean
+  includeRawData?: boolean
+  compression?: boolean
+  password?: string
+  sections?: string[]
+  
+  // PDF specific
+  layout?: 'executive' | 'detailed' | 'presentation' | 'dashboard'
+  theme?: 'professional' | 'medical' | 'modern' | 'minimal'
+  chartQuality?: 'standard' | 'high' | 'print'
+  pageOrientation?: 'portrait' | 'landscape'
+  includeWatermark?: boolean
+  headerFooter?: boolean
+  
+  // Excel specific
+  excelFormat?: 'xlsx' | 'xls'
+  dataSections?: string[]
+}
+
+// =============================================================================
+// API RESPONSE TYPES
+// =============================================================================
+
+export interface ReportsApiResponse<T> {
+  success: boolean
+  data: T
+  message?: string
+  generatedAt?: string
+}
+
+// =============================================================================
+// CHART DATA TYPES
+// =============================================================================
 
 export interface ChartDataPoint {
   name: string
   value: number
-  label?: string
-  color?: string
   percentage?: number
+  count?: number
+  date?: string
+  category?: string
+  label?: string // ✅ ADDED
+  color?: string // ✅ ADDED
 }
 
-export interface TrendDataPoint {
-  date: string
-  value: number
-  label?: string
+export interface StockChartsData {
+  levelChart: Array<{
+    category: string
+    normal: number
+    low: number
+    critical: number
+    outOfStock: number
+  }>
+  usageChart: Array<ChartDataPoint>
+  categoryChart: Array<ChartDataPoint> // ✅ FIXED: was categoryData
 }
 
-// Stok Raporları
+// =============================================================================
+// STOCK REPORTS
+// =============================================================================
+
 export interface StockLevelReport {
-  totalStocks: number
-  normalLevel: number
-  lowLevel: number
-  criticalLevel: number
-  outOfStock: number
-  categories: ChartDataPoint[]
-  clinics: ChartDataPoint[]
+  summary: {
+    total: number
+    normal: number
+    low: number
+    critical: number
+    outOfStock: number
+    totalStocks: number // ✅ ADDED
+    normalLevel: number // ✅ ADDED  
+    lowLevel: number // ✅ ADDED
+    criticalLevel: number // ✅ ADDED
+  }
+  details: Array<{
+    id: number
+    name: string
+    currentStock: number
+    minLevel: number
+    criticalLevel: number
+    status: 'normal' | 'low' | 'critical' | 'out_of_stock'
+    category: string
+    clinic: string
+  }>
+  categories?: Array<{ // ✅ ADDED
+    name: string
+    value: number
+    label: string
+    color: string
+    percentage: number
+  }>
 }
 
 export interface StockMovementReport {
   totalMovements: number
-  incoming: number
-  outgoing: number
+  inboundMovements: number
+  outboundMovements: number
   adjustments: number
   movements: Array<{
+    id: number
+    stockName: string
+    type: 'in' | 'out' | 'adjustment'
+    quantity: number
     date: string
-    incoming: number
-    outgoing: number
-    adjustments: number
+    performedBy: string
+    reason?: string
   }>
 }
 
 export interface CategoryAnalysisReport {
   categories: Array<{
     name: string
-    totalStock: number
+    totalItems: number
     totalValue: number
-    itemCount: number
-    lowStockCount: number
-    criticalStockCount: number
+    averageUsage: number
+    totalStock: number // ✅ ADDED
+    itemCount: number // ✅ ADDED
+    lowStockCount: number // ✅ ADDED
+    criticalStockCount: number // ✅ ADDED
+    topItems: Array<{
+      name: string
+      usage: number
+      value: number
+    }>
   }>
 }
 
 export interface UsageTrendReport {
-  period: 'daily' | 'weekly' | 'monthly'
-  data: Array<{
+  trends: Array<{
     date: string
-    usage: number
-    category?: string
-    stockName?: string
+    totalUsage: number
+    categories: Record<string, number>
+    metric?: string // ✅ ADDED
+    change?: number // ✅ ADDED
+    changePercent?: number // ✅ ADDED
+    label?: string // ✅ ADDED
+  }>
+  predictions: Array<{
+    date: string
+    predictedUsage: number
+    confidence: number
+    label?: string // ✅ ADDED
   }>
 }
 
 export interface ExpiryAnalysisReport {
   expiringSoon: Array<{
-    stockId: number
-    stockName: string
+    id: number
+    name: string
     expiryDate: string
-    daysToExpiry: number
+    daysUntilExpiry: number
     currentStock: number
-    clinicName: string
+    estimatedLoss: number
   }>
   expired: Array<{
-    stockId: number
-    stockName: string
+    id: number
+    name: string
     expiryDate: string
     daysExpired: number
-    currentStock: number
-    clinicName: string
+    stockLost: number
+    lossValue: number
   }>
-  summary: {
-    totalExpiring: number
-    totalExpired: number
+}
+
+export interface StockTrendAnalysis {
+  trends: Array<{
+    date: string
+    metric: string
+    value: number
+    change: number
+    changePercent: number
+    label?: string // ✅ ADDED
+  }>
+  forecast: Array<{
+    date: string
+    predicted: number
+    confidence: number
+    upperBound: number
+    lowerBound: number
+    label?: string // ✅ ADDED
+  }>
+  kpis: {
     totalValue: number
+    avgTurnover: number
+    efficiency: number
+    costSavings: number
   }
 }
 
-// Tedarikçi Raporları
-export interface SupplierPerformanceReport {
-  suppliers: Array<{
-    id: number
-    name: string
-    totalOrders: number
-    totalValue: number
-    onTimeDelivery: number
-    avgDeliveryTime: number
-    qualityRating: number
-    activeProducts: number
+export interface StockUsageData {
+  period?: string // ✅ ADDED
+  data: Array<{
+    date: string
+    fullDate?: string // ✅ ADDED
+    totalUsage: number
+    [key: string]: string | number | undefined // for dynamic categories
   }>
-  summary: {
+  summary?: { // ✅ ADDED
+    totalUsage: number
+    avgDaily: number
+    trend: string
+  }
+  daily: Array<{
+    date: string
+    usage: number
+    categories: Record<string, number>
+  }>
+  weekly: Array<{
+    week: string
+    usage: number
+    categories: Record<string, number>
+  }>
+  monthly: Array<{
+    month: string
+    usage: number
+    categories: Record<string, number>
+  }>
+}
+
+// =============================================================================
+// SUPPLIER REPORTS
+// =============================================================================
+
+export interface SupplierPerformanceReport {
+  summary?: { // ✅ ADDED
     totalSuppliers: number
     avgDeliveryTime: number
     avgQualityRating: number
   }
+  suppliers: Array<{
+    id: number
+    name: string
+    totalOrders: number
+    onTimeDeliveries: number
+    onTimeDelivery?: number // ✅ ADDED for compatibility
+    qualityRating: number
+    averageDeliveryTime: number
+    totalValue: number
+    lastOrderDate: string
+    activeProducts?: number // ✅ ADDED
+  }>
 }
 
-// EKSİK: Supplier ekstra type'ları
-export interface SupplierReportResponse {
-  success: boolean
-  data: SupplierPerformanceReport
-  message?: string
-  generatedAt: string
-}
-
-export interface SupplierPerformanceData {
+export interface SupplierPerformanceData { // ✅ ADDED
   id: number
   name: string
   performance: number
@@ -155,7 +299,7 @@ export interface SupplierPerformanceData {
   totalValue: number
 }
 
-export interface SupplierComparisonData {
+export interface SupplierComparisonData { // ✅ ADDED
   supplierId: number
   supplierName: string
   metrics: {
@@ -166,69 +310,81 @@ export interface SupplierComparisonData {
   }
 }
 
+export interface TrendDataPoint { // ✅ ADDED
+  date: string
+  value: number
+  label?: string
+  category?: string
+}
+
 export interface PurchaseAnalysisReport {
   totalPurchases: number
   totalValue: number
-  monthlyTrend: TrendDataPoint[]
-  supplierBreakdown: ChartDataPoint[]
-  categoryBreakdown: ChartDataPoint[]
+  averageOrderValue: number
+  monthlyTrends: Array<{
+    month: string
+    orderCount: number
+    totalValue: number
+  }>
+  monthlyTrend?: Array<{ // ✅ ADDED for compatibility
+    month: string
+    orderCount: number
+    totalValue: number
+  }>
+  categoryBreakdown?: Array<{ // ✅ ADDED
+    name: string
+    value: number
+  }>
+  topSuppliers: Array<{
+    name: string
+    orderCount: number
+    totalValue: number
+    averageDeliveryTime: number
+  }>
 }
 
-// Klinik Raporları
+// =============================================================================
+// CLINIC REPORTS
+// =============================================================================
+
 export interface ClinicConsumptionReport {
   clinics: Array<{
     id: number
     name: string
     totalConsumption: number
     totalValue: number
-    avgDailyUsage: number
-    mostUsedCategory: string
+    efficiency: number
+    topCategories: Array<{
+      category: string
+      consumption: number
+      value: number
+    }>
+  }>
+  comparison?: Array<{ // ✅ ADDED
+    clinicId: number
+    clinicName: string
+    totalConsumption: number
     efficiency: number
   }>
-  comparison: Array<{
-    clinicName: string
-    thisMonth: number
-    lastMonth: number
-    change: number
-  }>
 }
 
-// EKSİK: Clinic ekstra type'ları
-export interface ClinicReportResponse {
-  success: boolean
-  data: ClinicConsumptionReport
-  message?: string
-  generatedAt: string
-}
-
-export interface ClinicStockData {
+export interface ClinicStockData { // ✅ ADDED
   clinicId: number
   clinicName: string
-  totalItems: number
-  totalValue: number
-  lowStockCount: number
-  criticalStockCount: number
+  totalStock: number
+  lowStock: number
+  criticalStock: number
 }
 
-export interface ClinicComparisonData {
+export interface ClinicComparisonData { // ✅ ADDED
   clinicId: number
   clinicName: string
   metrics: {
-    consumption: number
+    totalConsumption: number
     efficiency: number
-    stockValue: number
-    alertCount: number
+    totalValue: number
+    stockCount: number
   }
-}
-
-export interface ClinicTrendData {
-  clinicId: number
-  clinicName: string
-  monthlyData: Array<{
-    month: string
-    consumption: number
-    efficiency: number
-  }>
 }
 
 export interface DoctorUsageReport {
@@ -236,158 +392,114 @@ export interface DoctorUsageReport {
     name: string
     clinic: string
     totalUsage: number
-    mostUsedItem: string
-    usageFrequency: number
+    averageDaily: number
+    categories: Record<string, number>
+    efficiency: number
   }>
 }
 
-// Transfer Raporları
 export interface TransferAnalysisReport {
   totalTransfers: number
-  completedTransfers: number
-  pendingTransfers: number
-  rejectedTransfers: number
-  avgApprovalTime: number
-  transferFlow: Array<{
-    fromClinic: string
-    toClinic: string
-    transferCount: number
+  averageApprovalTime: number
+  mostRequestedItems: Array<{
+    itemName: string
+    requestCount: number
     totalQuantity: number
   }>
-  monthlyTrend: TrendDataPoint[]
+  clinicActivity: Array<{
+    clinicName: string
+    requestsSent: number
+    requestsReceived: number
+    approvalRate: number
+  }>
 }
 
-// Uyarı Raporları
+// =============================================================================
+// ALERT REPORTS
+// =============================================================================
+
 export interface AlertStatisticsReport {
   totalAlerts: number
   activeAlerts: number
   resolvedAlerts: number
-  alertTypes: ChartDataPoint[]
-  priorityDistribution: ChartDataPoint[]
-  clinicAlerts: Array<{
-    clinicName: string
+  averageResolutionTime: number
+  alertsByType: Record<string, number>
+  alertsByPriority: Record<string, number>
+  trends: Array<{
+    date: string
     alertCount: number
-    criticalCount: number
-  }>
-  resolutionTimes: Array<{
-    alertType: string
-    avgResolutionHours: number
+    resolvedCount: number
   }>
 }
 
-// Export Types - Güncellendi
-export interface ExportOptions {
-  format: 'excel' | 'pdf' | 'csv'
-  includeCharts: boolean
-  dateRange: {
-    start: string
-    end: string
-  }
-  filters: ReportFilter
-  // Eklenen ekstra opsiyonlar
-  config?: ExportConfig
-}
+// =============================================================================
+// DASHBOARD SUMMARY
+// =============================================================================
 
-export interface ReportExportData {
-  title: string
-  generatedAt: string
-  filters: ReportFilter
-  data: unknown
-  charts?: Array<{
-    title: string
-    type: string
-    data: ChartDataPoint[] | TrendDataPoint[]
-  }>
-}
-
-// Dashboard Summary
 export interface ReportsDashboardSummary {
-  stockMetrics: {
-    totalItems: number
-    lowStockCount: number
-    criticalStockCount: number
-    totalValue: number
-  }
-  transferMetrics: {
-    pendingRequests: number
-    completedToday: number
-    avgApprovalTime: number
-  }
-  alertMetrics: {
-    activeAlerts: number
-    criticalAlerts: number
-    resolvedToday: number
-  }
-  topCategories: ChartDataPoint[]
-  recentActivity: Array<{
-    type: 'stock_used' | 'transfer_completed' | 'alert_created'
-    description: string
-    timestamp: string
-    clinic?: string
-  }>
-}
-
-// API Response Wrapper
-export interface ReportsApiResponse<T> {
-  success: boolean
-  data: T
-  message?: string
-  generatedAt: string
-}
-
-// Chart Configuration Types
-export interface ChartConfig {
-  type: 'bar' | 'line' | 'pie' | 'area' | 'donut'
-  title: string
-  subtitle?: string
-  height?: number
-  colors?: string[]
-  showLegend?: boolean
-  showTooltip?: boolean
-  showGrid?: boolean
-}
-
-export interface DateRangePreset {
-  label: string
-  value: string
-  startDate: string
-  endDate: string
-}
-
-// EKSİK: Hook Data Types
-export interface StockChartsData {
-  levelData: ChartDataPoint[]
-  categoryData: ChartDataPoint[]
-  trendData: TrendDataPoint[]
-  summary: {
+  stockSummary: {
     total: number
+    normal: number
     low: number
     critical: number
-    normal: number
+    outOfStock: number
+  }
+  supplierSummary: {
+    totalSuppliers: number
+    activeSuppliers: number
+    averageRating: number
+    avgDeliveryTime: number
+  }
+  clinicSummary: {
+    totalClinics: number
+    activeClinics: number
+    totalConsumption: number
+    avgEfficiency: number
+  }
+  alertSummary: {
+    totalAlerts: number
+    criticalAlerts: number
+    pendingAlerts: number
+    resolvedToday: number
   }
 }
 
-export interface StockTrendAnalysis {
-  trends: TrendDataPoint[]
-  forecasts: TrendDataPoint[]
-  indicators: {
-    direction: 'up' | 'down' | 'stable'
-    percentage: number
-    recommendation: string
-  }
+// =============================================================================
+// HOOK RESPONSE TYPES
+// =============================================================================
+
+export interface UseStockReportsReturn {
+  stockLevels: StockLevelReport | null
+  stockMovements: StockMovementReport | null
+  categoryAnalysis: CategoryAnalysisReport | null
+  usageTrends: UsageTrendReport | null
+  isLoading: boolean
+  error: Error | null
+  refetch: () => void
 }
 
-export interface StockUsageData {
-  period: 'daily' | 'weekly' | 'monthly'
-  data: Array<{
-    date: string
-    fullDate: string
-    totalUsage: number
-    [category: string]: number | string
-  }>
-  summary: {
-    totalUsage: number
-    avgDaily: number
-    trend: 'increasing' | 'decreasing' | 'stable'
-  }
+// =============================================================================
+// COMPONENT PROP TYPES
+// =============================================================================
+
+export interface ChartComponentProps {
+  filters?: Partial<ReportFilter>
+  height?: number
+  showControls?: boolean
+  onExport?: (data: unknown, format: string) => void
 }
+
+export interface FilterComponentProps {
+  value?: Partial<ReportFilter>
+  onChange?: (filters: Partial<ReportFilter>) => void
+  disabled?: boolean
+}
+
+// =============================================================================
+// EXPORT FORMATS
+// =============================================================================
+
+export type ExportFormat = 'excel' | 'pdf' | 'csv' | 'xlsx' | 'xls'
+export type ReportType = 'stock' | 'supplier' | 'clinic' | 'trend'
+export type ChartType = 'bar' | 'line' | 'pie' | 'donut' | 'area' | 'table'
+export type ValueType = 'count' | 'percentage' | 'value'

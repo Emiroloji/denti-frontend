@@ -1,7 +1,6 @@
 // src/modules/reports/hooks/useSupplierReports.ts
 
 import { useQuery, UseQueryResult } from '@tanstack/react-query'
-import { message } from 'antd'
 import { reportsApi } from '../services/reportsApi'
 import type {
   ReportFilter,
@@ -9,8 +8,7 @@ import type {
   SupplierPerformanceReport,
   PurchaseAnalysisReport,
   SupplierPerformanceData,
-  SupplierComparisonData,
-  TrendDataPoint
+  SupplierComparisonData
 } from '../types/reports.types'
 
 // =============================================================================
@@ -42,7 +40,7 @@ export const useSupplierPerformanceData = (filters?: ReportFilter): UseQueryResu
         id: supplier.id,
         name: supplier.name,
         performance: calculatePerformanceScore(supplier),
-        deliveryScore: supplier.onTimeDelivery,
+        deliveryScore: supplier.onTimeDeliveries,
         qualityScore: supplier.qualityRating,
         totalValue: supplier.totalValue
       }))
@@ -67,7 +65,14 @@ export const useSupplierComparison = (supplierIds: number[], filters?: ReportFil
       const response = await reportsApi.suppliers.getComparison(supplierIds, filters)
       
       // Transform response to comparison format
-      const transformedData: SupplierComparisonData[] = response.data.map((item: any) => ({
+      const transformedData: SupplierComparisonData[] = response.data.map((item: {
+        id: number
+        name: string
+        avgDeliveryTime: number
+        qualityRating: number
+        totalOrders: number
+        totalValue: number
+      }) => ({
         supplierId: item.id,
         supplierName: item.name,
         metrics: {
@@ -94,7 +99,7 @@ export const useSupplierTrendAnalysis = (filters?: ReportFilter) => {
   return useQuery({
     queryKey: ['supplier-reports', 'trends', filters],
     queryFn: () => reportsApi.suppliers.getTrendAnalysis(filters),
-    select: (data: any) => data.data,
+    select: (data: { data: unknown }) => data.data,
     staleTime: 1000 * 60 * 10,
     refetchOnWindowFocus: false
   })
@@ -108,7 +113,7 @@ export const useTopSuppliers = (filters?: ReportFilter & { limit?: number }) => 
   return useQuery({
     queryKey: ['supplier-reports', 'top-suppliers', filters],
     queryFn: () => reportsApi.suppliers.getTopSuppliers(filters),
-    select: (data: any) => data.data,
+    select: (data: { data: unknown }) => data.data,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false
   })
@@ -122,7 +127,7 @@ export const useSupplierDeliveryPerformance = (filters?: ReportFilter) => {
   return useQuery({
     queryKey: ['supplier-reports', 'delivery-performance', filters],
     queryFn: () => reportsApi.suppliers.getDeliveryPerformance(filters),
-    select: (data: any) => data.data,
+    select: (data: { data: unknown }) => data.data,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false
   })
@@ -136,7 +141,7 @@ export const useSupplierCostAnalysis = (filters?: ReportFilter) => {
   return useQuery({
     queryKey: ['supplier-reports', 'cost-analysis', filters],
     queryFn: () => reportsApi.suppliers.getCostAnalysis(filters),
-    select: (data: any) => data.data,
+    select: (data: { data: unknown }) => data.data,
     staleTime: 1000 * 60 * 5,
     refetchOnWindowFocus: false
   })
@@ -188,8 +193,8 @@ export const useSupplierSummaryStats = (filters?: ReportFilter) => {
           worstPerformer: suppliers.length > 0 ? suppliers.reduce((worst, current) => 
             calculatePerformanceScore(current) < calculatePerformanceScore(worst) ? current : worst
           ) : null,
-          deliveryTrend: purchase.monthlyTrend?.slice(-6) || [], // Son 6 ay
-          categoryBreakdown: purchase.categoryBreakdown?.map((cat: any) => ({
+          deliveryTrend: purchase.monthlyTrends?.slice(-6) || [], // Son 6 ay
+          categoryBreakdown: purchase.categoryBreakdown?.map((cat: { name: string; value: number }) => ({
             name: cat.name,
             value: cat.value,
             percentage: purchase.totalValue > 0 ? ((cat.value / purchase.totalValue) * 100).toFixed(1) : '0'
@@ -222,7 +227,11 @@ export const useSupplierSummaryStats = (filters?: ReportFilter) => {
 // UTILITY FUNCTIONS
 // =============================================================================
 
-const calculatePerformanceScore = (supplier: any): number => {
+const calculatePerformanceScore = (supplier: {
+  onTimeDeliveries?: number
+  qualityRating?: number
+  totalValue?: number
+}): number => {
   if (!supplier) return 0
   
   // Performans skoru hesaplama algoritması
@@ -230,7 +239,7 @@ const calculatePerformanceScore = (supplier: any): number => {
   const qualityWeight = 0.4
   const valueWeight = 0.2
   
-  const deliveryScore = Math.min(supplier.onTimeDelivery || 0, 100)
+  const deliveryScore = Math.min(supplier.onTimeDeliveries || 0, 100)
   const qualityScore = (supplier.qualityRating || 0) * 20 // 5 üzerinden 100'e çevir
   const valueScore = Math.min(((supplier.totalValue || 0) / 10000) * 10, 100) // Normalize
   

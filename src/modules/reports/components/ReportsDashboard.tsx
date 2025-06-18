@@ -74,7 +74,6 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
 
   const { 
     data: stockReports, 
-    isLoading, 
     error: stockError,
     refetch: refetchStock 
   } = useAllStockReports(filters)
@@ -327,7 +326,7 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
               <Col xs={12} sm={6}>
                 <Statistic
                   title="Normal Seviye"
-                  value={stockReports.levels?.normalLevel || 0}
+                  value={stockReports.levels?.summary?.normal || 0}
                   suffix="kalem"
                   valueStyle={{ color: '#52c41a' }}
                 />
@@ -335,7 +334,7 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
               <Col xs={12} sm={6}>
                 <Statistic
                   title="Düşük Seviye"
-                  value={stockReports.levels?.lowLevel || 0}
+                  value={stockReports.levels?.summary?.low || 0}
                   suffix="kalem"
                   valueStyle={{ color: '#faad14' }}
                 />
@@ -343,14 +342,14 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
               <Col xs={12} sm={6}>
                 <Statistic
                   title="Kritik Seviye"
-                  value={stockReports.levels?.criticalLevel || 0}
+                  value={stockReports.levels?.summary?.critical || 0}
                   suffix="kalem"
                   valueStyle={{ color: '#f5222d' }}
                 />
               </Col>
               <Col xs={12} sm={6}>
                 <Statistic
-                  title="Toplam Değer"
+                  title="Toplam Hareket"
                   value={stockReports.movements?.totalMovements || 0}
                   suffix="hareket"
                   valueStyle={{ color: '#1890ff' }}
@@ -505,7 +504,7 @@ export const ReportsDashboard: React.FC<ReportsDashboardProps> = ({
           activeKey={activeTab} 
           onChange={setActiveTab}
           type="card"
-          size={compactMode ? 'small' : 'default'}
+          size={compactMode ? 'small' : 'large'} // ✅ FIXED: 'default' -> 'large'
           items={[
             {
               key: 'overview',

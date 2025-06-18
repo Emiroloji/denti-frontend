@@ -6,7 +6,6 @@ import {
   Modal, 
   Form, 
   Input, 
-  Select, 
   Checkbox, 
   Space, 
   Typography, 
@@ -23,14 +22,14 @@ import {
   LoadingOutlined
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { exportApi, reportsApiHelpers } from '../../services/reportsApi'
+import { exportApi } from '../../services/reportsApi'
 import { ExportConfig, ReportFilter, ExportOptions } from '../../types/reports.types'
 
 const { Text } = Typography
 
 interface ExcelExportProps {
   reportType: 'stock' | 'supplier' | 'clinic' | 'trend'
-  reportData?: any
+  reportData?: unknown
   filters?: Partial<ReportFilter>
   onExportComplete?: (filename: string) => void
   disabled?: boolean
@@ -38,7 +37,6 @@ interface ExcelExportProps {
 
 export const ExcelExport: React.FC<ExcelExportProps> = ({
   reportType,
-  reportData,
   filters,
   onExportComplete,
   disabled = false
@@ -104,18 +102,18 @@ export const ExcelExport: React.FC<ExcelExportProps> = ({
   }
 
   // Handle export
-  const handleExport = async (values: any) => {
+  const handleExport = async (values: Record<string, unknown>) => {
     setIsExporting(true)
     setExportProgress(0)
 
     try {
       const exportOptions: ExportOptions = {
-        fileName: values.fileName || defaultConfig.fileName,
-        includeCharts: values.includeCharts ?? true,
-        includeRawData: values.includeRawData ?? true,
-        compression: values.compression ?? false,
-        password: values.password,
-        format: values.excelFormat || 'xlsx'
+        fileName: (values.fileName as string) || defaultConfig.fileName,
+        includeCharts: (values.includeCharts as boolean) ?? true,
+        includeRawData: (values.includeRawData as boolean) ?? true,
+        compression: (values.compression as boolean) ?? false,
+        password: values.password as string,
+        format: (values.excelFormat as 'xlsx' | 'xls') || 'xlsx'
       }
 
       // Simulate progress
@@ -152,8 +150,9 @@ export const ExcelExport: React.FC<ExcelExportProps> = ({
       onExportComplete?.(filename)
       setIsModalVisible(false)
 
-    } catch (error: any) {
-      message.error(error.response?.data?.message || 'Excel export işlemi başarısız!')
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Excel export işlemi başarısız!'
+      message.error(errorMessage)
       console.error('Excel export error:', error)
     } finally {
       setIsExporting(false)
@@ -362,7 +361,7 @@ export const ExcelExport: React.FC<ExcelExportProps> = ({
             fontSize: '12px'
           }}>
             <Text style={{ color: '#389e0d' }}>
-              📊 Tahmini dosya boyutu: ~{reportData ? '2-5' : '1-3'} MB
+              📊 Tahmini dosya boyutu: ~1-3 MB
             </Text>
             <br />
             <Text style={{ color: '#389e0d' }}>
@@ -375,39 +374,4 @@ export const ExcelExport: React.FC<ExcelExportProps> = ({
   )
 }
 
-// Quick export function for simple use cases
-export const quickExcelExport = async (
-  reportType: 'stock' | 'supplier' | 'clinic' | 'trend',
-  filters?: Partial<ReportFilter>,
-  filename?: string
-) => {
-  try {
-    const exportOptions: ExportOptions = {
-      fileName: filename || `${reportType}_report_${dayjs().format('YYYY-MM-DD')}`,
-      includeCharts: true,
-      includeRawData: true,
-      compression: false,
-      format: 'xlsx'
-    }
-
-    const blob = await exportApi.exportToExcel(reportType, exportOptions)
-    const fullFilename = `${exportOptions.fileName}.xlsx`
-    
-    // Download file
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = fullFilename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
-
-    message.success('Excel dosyası başarıyla indirildi!')
-    
-    return fullFilename
-  } catch (error: any) {
-    message.error('Excel export işlemi başarısız!')
-    throw error
-  }
-}
+export default ExcelExport

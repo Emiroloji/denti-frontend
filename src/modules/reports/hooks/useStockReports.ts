@@ -48,27 +48,21 @@ export const useStockChartsData = (filters?: ReportFilter): UseQueryResult<Stock
 
         // Chart data'yı transform edelim
         const transformedData: StockChartsData = {
-          levelData: levelsData.data.categories?.map((item): ChartDataPoint => ({
-            name: item.name,
-            value: item.value,
-            label: item.label,
-            color: item.color,
-            percentage: item.percentage
-          })) || [],
-          categoryData: categoryData.data.categories?.map((cat): ChartDataPoint => ({
+          levelChart: levelsData.data.summary ? [{
+            category: 'Stok Seviyeleri',
+            normal: levelsData.data.summary.normal,
+            low: levelsData.data.summary.low,
+            critical: levelsData.data.summary.critical,
+            outOfStock: levelsData.data.summary.outOfStock
+          }] : [],
+          usageChart: [],
+          categoryChart: categoryData.data.categories?.map((cat): ChartDataPoint => ({
             name: cat.name,
-            value: cat.totalStock,
-            label: `${cat.itemCount} ürün`,
-            color: getColorByStockLevel(cat.lowStockCount, cat.criticalStockCount),
+            value: cat.totalItems,
+            label: `${cat.totalItems} ürün`,
+            color: getColorByStockLevel(cat.lowStockCount || 0, cat.criticalStockCount || 0),
             percentage: 0 // Backend'den hesaplanacak
-          })) || [],
-          trendData: [], // Backend'den gelecek
-          summary: {
-            total: levelsData.data.totalStocks,
-            low: levelsData.data.lowLevel,
-            critical: levelsData.data.criticalLevel,
-            normal: levelsData.data.normalLevel
-          }
+          })) || []
         }
 
         return transformedData
@@ -92,27 +86,28 @@ export const useStockTrendAnalysis = (filters?: ReportFilter): UseQueryResult<St
     queryKey: ['stock-reports', 'trends', filters],
     queryFn: async () => {
       try {
-        const response = await reportsApi.stocks.getTrendAnalysis(filters)
+        await reportsApi.stocks.getTrendAnalysis(filters)
         
         // Mock data transform - Backend implementasyonuna kadar
         const mockTrendData: StockTrendAnalysis = {
           trends: [
-            { date: '2024-01-01', value: 850, label: 'Ocak' },
-            { date: '2024-02-01', value: 920, label: 'Şubat' },
-            { date: '2024-03-01', value: 780, label: 'Mart' },
-            { date: '2024-04-01', value: 890, label: 'Nisan' },
-            { date: '2024-05-01', value: 940, label: 'Mayıs' },
-            { date: '2024-06-01', value: 820, label: 'Haziran' }
+            { date: '2024-01-01', metric: 'Stok', value: 850, change: 0, changePercent: 0 },
+            { date: '2024-02-01', metric: 'Stok', value: 920, change: 70, changePercent: 8.2 },
+            { date: '2024-03-01', metric: 'Stok', value: 780, change: -140, changePercent: -15.2 },
+            { date: '2024-04-01', metric: 'Stok', value: 890, change: 110, changePercent: 14.1 },
+            { date: '2024-05-01', metric: 'Stok', value: 940, change: 50, changePercent: 5.6 },
+            { date: '2024-06-01', metric: 'Stok', value: 820, change: -120, changePercent: -12.8 }
           ],
-          forecasts: [
-            { date: '2024-07-01', value: 860, label: 'Temmuz (Tahmin)' },
-            { date: '2024-08-01', value: 880, label: 'Ağustos (Tahmin)' },
-            { date: '2024-09-01', value: 900, label: 'Eylül (Tahmin)' }
+          forecast: [
+            { date: '2024-07-01', predicted: 860, confidence: 85, upperBound: 900, lowerBound: 820 },
+            { date: '2024-08-01', predicted: 880, confidence: 80, upperBound: 930, lowerBound: 830 },
+            { date: '2024-09-01', predicted: 900, confidence: 75, upperBound: 960, lowerBound: 840 }
           ],
-          indicators: {
-            direction: 'up',
-            percentage: 12.5,
-            recommendation: 'Stok seviyeleri artış eğiliminde. Tedarik planlaması güncellenebilir.'
+          kpis: {
+            totalValue: 5200,
+            avgTurnover: 0.75,
+            efficiency: 85.5,
+            costSavings: 12500
           }
         }
 
@@ -137,11 +132,10 @@ export const useStockUsageReport = (filters?: ReportFilter): UseQueryResult<Stoc
     queryKey: ['stock-reports', 'usage', filters],
     queryFn: async () => {
       try {
-        const response = await reportsApi.stocks.getUsageReport(filters)
+        await reportsApi.stocks.getUsageReport(filters)
         
         // Mock data transform - Backend implementasyonuna kadar
         const mockUsageData: StockUsageData = {
-          period: 'daily',
           data: [
             {
               date: '01.06',
@@ -198,7 +192,10 @@ export const useStockUsageReport = (filters?: ReportFilter): UseQueryResult<Stoc
             totalUsage: 223,
             avgDaily: 44.6,
             trend: 'stable'
-          }
+          },
+          daily: [],
+          weekly: [],
+          monthly: []
         }
 
         return mockUsageData
@@ -290,12 +287,13 @@ export const useStockStatusSummary = (filters?: ReportFilter) => {
     queryFn: async () => {
       try {
         const response = await reportsApi.stocks.getLevelsReport(filters)
+        const summary = response.data.summary
         return {
-          total: response.data.totalStocks,
-          normal: response.data.normalLevel,
-          low: response.data.lowLevel,
-          critical: response.data.criticalLevel,
-          outOfStock: response.data.outOfStock
+          total: summary?.total || summary?.totalStocks || 0,
+          normal: summary?.normal || summary?.normalLevel || 0,
+          low: summary?.low || summary?.lowLevel || 0,
+          critical: summary?.critical || summary?.criticalLevel || 0,
+          outOfStock: summary?.outOfStock || 0
         }
       } catch (error) {
         console.error('Stock status summary error:', error)
