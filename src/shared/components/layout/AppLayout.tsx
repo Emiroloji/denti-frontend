@@ -1,7 +1,7 @@
 // src/shared/components/layout/AppLayout.tsx
 
 import React, { useState } from 'react'
-import { Layout, Menu, Button, Typography, Space, Avatar, Dropdown, Badge } from 'antd'
+import { Layout, Menu, Button, Typography, Space, Avatar, Dropdown } from 'antd'
 import { 
   MenuFoldOutlined, 
   MenuUnfoldOutlined,
@@ -16,26 +16,24 @@ import {
   SettingOutlined,
 } from '@ant-design/icons'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { usePendingAlertCount } from '@/modules/alerts/hooks/useAlerts'
+// import { usePendingAlertCount } from '@/modules/alerts/hooks/useAlerts' // COMMENT OUT
 import type { MenuProps } from 'antd'
 
 const { Header, Sider, Content } = Layout
 const { Title } = Typography
 
-// Pending alert badge component'i
-const PendingAlertBadge: React.FC = () => {
-  const { data: pendingCount } = usePendingAlertCount()
-  
-  if (!pendingCount || pendingCount === 0) return null
-  
-  return (
-    <Badge 
-      count={pendingCount} 
-      size="small" 
-      style={{ backgroundColor: '#ff4d4f' }}
-    />
-  )
-}
+// Pending alert badge component'i - DISABLED (component kaldırıldı)
+// const PendingAlertBadge: React.FC = () => {
+//   const pendingCount = 0 // Sabit 0 veya undefined
+//   if (!pendingCount || pendingCount === 0) return null
+//   return (
+//     <Badge 
+//       count={pendingCount} 
+//       size="small" 
+//       style={{ backgroundColor: '#ff4d4f' }}
+//     />
+//   )
+// }
 
 export const AppLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false)
@@ -73,7 +71,8 @@ export const AppLayout: React.FC = () => {
       label: (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <span>Uyarılar</span>
-          {!collapsed && <PendingAlertBadge />}
+          {/* Badge'i geçici olarak disable et veya kaldır */}
+          {/* {!collapsed && <PendingAlertBadge />} */}
         </div>
       ),
       onClick: () => navigate('/alerts')

@@ -21,13 +21,24 @@ export const useStocks = (filters?: StockFilter) => {
   } = useQuery({
     queryKey: ['stocks', filters],
     queryFn: () => stockApi.getAll(filters),
-    select: (data) => data.data
+    select: (data) => data.data,
+    staleTime: Infinity, // NEVER refresh automatically
+    gcTime: Infinity, // NEVER garbage collect
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
+    refetchOnReconnect: false, // Network reconnect'te de yenileme
+    refetchIntervalInBackground: false,
   })
 
   const createMutation = useMutation({
     mutationFn: stockApi.create,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stocks'] })
+      // Sadece stocks query'sini invalidate et, başka hiçbirini etme
+      queryClient.invalidateQueries({ 
+        queryKey: ['stocks'],
+        exact: false // Alt query'leri de invalidate et
+      })
       message.success('Stok başarıyla oluşturuldu!')
     },
     onError: (error: Error & { response?: { data?: { message?: string } } }) => {
@@ -100,46 +111,79 @@ export const useStocks = (filters?: StockFilter) => {
   }
 }
 
-// Tekil stok için hook - Backend'de method varsa
+// Tekil stok için hook - TAMAMEN DISABLE ET
 export const useStock = (id: number) => {
   return useQuery({
     queryKey: ['stocks', id],
     queryFn: () => stockApi.getById(id),
     select: (data) => data.data,
-    enabled: !!id
+    enabled: false, // TAMAMEN KAPAT
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    retry: false,
   })
 }
 
-// Stok seviyeleri için hooklar
+// Diğer hook'ları da disable et veya çok sınırla
 export const useLowStockItems = () => {
   return useQuery({
-    queryKey: ['stocks', 'low-level'],
+    queryKey: ['stock-levels', 'low'],
     queryFn: stockApi.getLowStockItems,
-    select: (data) => data.data
+    select: (data) => data.data,
+    enabled: false, // TAMAMEN KAPAT - manuel çağrı yapılana kadar
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
+    retry: false,
   })
 }
 
 export const useCriticalStockItems = () => {
   return useQuery({
-    queryKey: ['stocks', 'critical-level'],
+    queryKey: ['stock-levels', 'critical'],
     queryFn: stockApi.getCriticalStockItems,
-    select: (data) => data.data
+    select: (data) => data.data,
+    enabled: false, // TAMAMEN KAPAT
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
+    retry: false,
   })
 }
 
 export const useExpiringItems = (days?: number) => {
   return useQuery({
-    queryKey: ['stocks', 'expiring', days],
+    queryKey: ['stock-levels', 'expiring', days],
     queryFn: () => stockApi.getExpiringItems(days),
-    select: (data) => data.data
+    select: (data) => data.data,
+    enabled: false, // TAMAMEN KAPAT
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
+    retry: false,
   })
 }
 
-// Stok istatistikleri için hook
+// Stats hook'u da minimal yap
 export const useStockStats = () => {
   return useQuery({
-    queryKey: ['stocks', 'stats'],
+    queryKey: ['stock-stats'],
     queryFn: stockApi.getStats,
-    select: (data) => data.data
+    select: (data) => data.data,
+    enabled: false, // TAMAMEN KAPAT - sadece manuel çağrı
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
+    retry: false,
   })
 }

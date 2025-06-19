@@ -1,6 +1,6 @@
 // src/modules/stock/components/StockList.tsx
 
-import React, { useState } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import { 
   Card, 
   Row, 
@@ -15,28 +15,77 @@ import {
   Typography,
   Statistic,
   Alert,
-  Empty,
-  Spin
+  Table,
+  Tag,
+  Tooltip,
+  Dropdown,
+  MenuProps,
 } from 'antd'
 import { 
   PlusOutlined, 
   WarningOutlined,
   ExclamationCircleOutlined,
   ReloadOutlined,
-  SettingOutlined
+  SettingOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  MoreOutlined,
+  MinusOutlined,
+  CalendarOutlined,
+  DollarOutlined,
+  ShopOutlined,
+  BankOutlined
 } from '@ant-design/icons'
-import { useStocks, useLowStockItems, useCriticalStockItems, useExpiringItems, useStockStats } from '../hooks/useStocks'
+import { useStocks } from '../hooks/useStocks'
 import { Stock, StockFilter, StockAdjustmentRequest, StockUsageRequest } from '../types/stock.types'
-import { StockCard } from './StockCard'
 import { StockForm } from './StockForm'
-
-// Debug için geçici import
-const isDev = import.meta.env.MODE === 'development'
+import dayjs from 'dayjs'
+import type { ColumnsType } from 'antd/es/table'
 
 const { Option } = Select
 const { Search } = Input
 const { Title } = Typography
-const { confirm } = Modal
+
+// Stok seviye badge component'i
+const StockLevelBadge: React.FC<{ stock: Stock }> = ({ stock }) => {
+  const getStockLevel = () => {
+    const { current_stock, min_stock_level, critical_stock_level, expiry_date } = stock
+    
+    // Süre kontrolü
+    if (expiry_date) {
+      const expiryDate = new Date(expiry_date)
+      const today = new Date()
+      const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      
+      if (daysUntilExpiry <= 0) {
+        return { level: 'expired', color: 'default', text: 'Süresi Geçmiş' }
+      }
+      
+      if (daysUntilExpiry <= 7) {
+        return { level: 'expiring', color: 'red', text: `${daysUntilExpiry} gün kaldı` }
+      }
+    }
+    
+    // Stok seviye kontrolü
+    if (current_stock <= critical_stock_level) {
+      return { level: 'critical', color: 'red', text: 'Kritik Seviye' }
+    }
+    
+    if (current_stock <= min_stock_level) {
+      return { level: 'low', color: 'orange', text: 'Düşük Seviye' }
+    }
+    
+    return { level: 'normal', color: 'green', text: 'Normal' }
+  }
+
+  const levelInfo = getStockLevel()
+
+  return (
+    <Tag color={levelInfo.color} style={{ margin: 0 }}>
+      {levelInfo.text}
+    </Tag>
+  )
+}
 
 export const StockList: React.FC = () => {
   const [filters, setFilters] = useState<StockFilter>({})
@@ -54,60 +103,91 @@ export const StockList: React.FC = () => {
     refetch, 
     deleteStock, 
     adjustStock, 
-    useStock,
+    useStock: executeStockUsage,
     isAdjusting,
     isUsing
   } = useStocks(filters)
 
-  const { data: stockStats } = useStockStats()
-  const { data: lowStockItems } = useLowStockItems()
-  const { data: criticalStockItems } = useCriticalStockItems()
-  const { data: expiringItems } = useExpiringItems(30)
+  // Manuel hesaplamalar (hook'lar disable edildi)
+  const stockStats = useMemo(() => {
+    if (!stocks) return null
+    
+    const today = new Date()
+    const thirtyDaysFromNow = new Date()
+    thirtyDaysFromNow.setDate(today.getDate() + 30)
 
-  const handleSearch = (value: string) => {
+    return {
+      total_items: stocks.length,
+      low_stock_items: stocks.filter(s => s.current_stock <= s.min_stock_level).length,
+      critical_stock_items: stocks.filter(s => s.current_stock <= s.critical_stock_level).length,
+      expiring_items: stocks.filter(s => {
+        if (!s.expiry_date) return false
+        const expiryDate = new Date(s.expiry_date)
+        return expiryDate <= thirtyDaysFromNow && expiryDate >= today
+      }).length,
+      total_value: stocks.reduce((sum, s) => sum + (s.purchase_price * s.current_stock), 0)
+    }
+  }, [stocks])
+
+  const lowStockItems = useMemo(() => {
+    if (!stocks) return []
+    return stocks.filter(s => s.current_stock <= s.min_stock_level)
+  }, [stocks])
+
+  const criticalStockItems = useMemo(() => {
+    if (!stocks) return []
+    return stocks.filter(s => s.current_stock <= s.critical_stock_level)
+  }, [stocks])
+
+  const expiringItems = useMemo(() => {
+    if (!stocks) return []
+    const today = new Date()
+    const thirtyDaysFromNow = new Date()
+    thirtyDaysFromNow.setDate(today.getDate() + 30)
+    
+    return stocks.filter(s => {
+      if (!s.expiry_date) return false
+      const expiryDate = new Date(s.expiry_date)
+      return expiryDate <= thirtyDaysFromNow && expiryDate >= today
+    })
+  }, [stocks])
+
+  // Event handlers
+  const handleSearch = useCallback((value: string) => {
     setFilters(prev => ({ ...prev, name: value }))
-  }
+  }, [])
 
-  const handleFilterChange = (field: keyof StockFilter, value: string | number | undefined) => {
+  const handleFilterChange = useCallback((field: keyof StockFilter, value: string | number | undefined) => {
     setFilters(prev => ({ ...prev, [field]: value }))
-  }
+  }, [])
 
-  const handleAdd = () => {
+  const handleAdd = useCallback(() => {
     setEditingStock(null)
     setIsFormModalVisible(true)
-  }
+  }, [])
 
-  const handleEdit = (stock: Stock) => {
+  const handleEdit = useCallback((stock: Stock) => {
     setEditingStock(stock)
     setIsFormModalVisible(true)
-  }
+  }, [])
 
-  const handleDelete = (id: number) => {
-    confirm({
-      title: 'Stok Silme',
-      content: 'Bu stok kaydını silmek istediğinizden emin misiniz?',
-      okText: 'Evet, Sil',
-      cancelText: 'İptal',
-      okType: 'danger',
-      onOk: async () => {
-        await deleteStock(id)
-      }
-    })
-  }
+  const handleDelete = useCallback(async (id: number) => {
+    await deleteStock(id)
+  }, [deleteStock])
 
-  const handleAdjust = (stock: Stock) => {
+  const handleAdjust = useCallback((stock: Stock) => {
     setSelectedStock(stock)
     setIsAdjustModalVisible(true)
     adjustForm.resetFields()
-  }
+  }, [adjustForm])
 
-  const handleUse = (stock: Stock) => {
+  const handleUse = useCallback((stock: Stock) => {
     setSelectedStock(stock)
     setIsUseModalVisible(true)
     useForm.resetFields()
-  }
+  }, [useForm])
 
-  const onAdjustSubmit = async (values: StockAdjustmentRequest) => {
+  const onAdjustSubmit = useCallback(async (values: StockAdjustmentRequest) => {
     if (!selectedStock) return
     
     try {
@@ -118,25 +198,220 @@ export const StockList: React.FC = () => {
     } catch (error) {
       console.error('Stok ayarlama hatası:', error)
     }
-  }
+  }, [selectedStock, adjustStock, adjustForm])
 
-  const onUseSubmit = async (values: StockUsageRequest) => {
+  const handleStockUsage = useCallback(async (values: StockUsageRequest) => {
     if (!selectedStock) return
     
     try {
-      await useStock({ id: selectedStock.id, data: values })
+      await executeStockUsage({ id: selectedStock.id, data: values })
       setIsUseModalVisible(false)
       setSelectedStock(null)
       useForm.resetFields()
     } catch (error) {
       console.error('Stok kullanım hatası:', error)
     }
-  }
+  }, [selectedStock, executeStockUsage, useForm])
 
-  const onFormSuccess = () => {
+  const onFormSuccess = useCallback(() => {
     setIsFormModalVisible(false)
     setEditingStock(null)
-  }
+  }, [])
+
+  // Tablo kolonları
+  const columns: ColumnsType<Stock> = [
+    {
+      title: 'Ürün Bilgileri',
+      key: 'product_info',
+      width: 300,
+      render: (_, record) => (
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+            {record.name}
+          </div>
+          {record.brand && (
+            <Tag color="blue">{record.brand}</Tag>
+          )}
+          {record.description && (
+            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+              {record.description}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'Kategori',
+      dataIndex: 'category',
+      key: 'category',
+      width: 150,
+      render: (category) => (
+        <Tag color="geekblue">{category}</Tag>
+      ),
+    },
+    {
+      title: 'Mevcut Stok',
+      key: 'current_stock',
+      width: 120,
+      align: 'center',
+      render: (_, record) => (
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontWeight: 600, fontSize: 16 }}>
+            {record.current_stock}
+          </div>
+          <div style={{ fontSize: 12, color: '#666' }}>
+            {record.unit}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Durum',
+      key: 'status',
+      width: 120,
+      align: 'center',
+      render: (_, record) => (
+        <StockLevelBadge stock={record} />
+      ),
+    },
+    {
+      title: 'Min/Kritik',
+      key: 'limits',
+      width: 100,
+      align: 'center',
+      render: (_, record) => (
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 12 }}>
+            Min: {record.min_stock_level}
+          </div>
+          <div style={{ fontSize: 12, color: '#ff4d4f' }}>
+            Kritik: {record.critical_stock_level}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Fiyat',
+      key: 'price',
+      width: 100,
+      align: 'right',
+      render: (_, record) => (
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontWeight: 600 }}>
+            {record.purchase_price} {record.currency}
+          </div>
+          <div style={{ fontSize: 12, color: '#666' }}>
+            Toplam: {(record.purchase_price * record.current_stock).toLocaleString()} {record.currency}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Son Kullanma',
+      dataIndex: 'expiry_date',
+      key: 'expiry_date',
+      width: 120,
+      align: 'center',
+      render: (expiry_date) => {
+        if (!expiry_date) return <span style={{ color: '#999' }}>-</span>
+        
+        const expiryDate = dayjs(expiry_date)
+        const today = dayjs()
+        const daysLeft = expiryDate.diff(today, 'day')
+        
+        let color = 'green'
+        if (daysLeft <= 0) color = 'red'
+        else if (daysLeft <= 7) color = 'orange'
+        else if (daysLeft <= 30) color = 'yellow'
+        
+        return (
+          <Tooltip title={`${daysLeft} gün kaldı`}>
+            <Tag color={color} icon={<CalendarOutlined />}>
+              {expiryDate.format('DD/MM/YYYY')}
+            </Tag>
+          </Tooltip>
+        )
+      },
+    },
+    {
+      title: 'Tedarikçi',
+      key: 'supplier',
+      width: 150,
+      render: (_, record) => (
+        <div>
+          <div style={{ fontSize: 12 }}>
+            <ShopOutlined /> {record.supplier?.name || 'Bilinmiyor'}
+          </div>
+          <div style={{ fontSize: 12, color: '#666' }}>
+            <BankOutlined /> {record.clinic?.name || 'Bilinmiyor'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'İşlemler',
+      key: 'actions',
+      width: 120,
+      align: 'center',
+      fixed: 'right',
+      render: (_, record) => {
+        const menuItems: MenuProps['items'] = [
+          {
+            key: 'adjust',
+            label: 'Stok Ayarla',
+            icon: <PlusOutlined />,
+            onClick: () => handleAdjust(record)
+          },
+          {
+            key: 'use',
+            label: 'Stok Kullan',
+            icon: <MinusOutlined />,
+            onClick: () => handleUse(record)
+          },
+          {
+            type: 'divider'
+          },
+          {
+            key: 'edit',
+            label: 'Düzenle',
+            icon: <EditOutlined />,
+            onClick: () => handleEdit(record)
+          },
+          {
+            key: 'delete',
+            label: 'Sil',
+            icon: <DeleteOutlined />,
+            danger: true,
+            onClick: () => handleDelete(record.id)
+          }
+        ]
+
+        return (
+          <Space>
+            <Tooltip title="Düzenle">
+              <Button 
+                type="text" 
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => handleEdit(record)}
+              />
+            </Tooltip>
+            <Tooltip title="Stok Kullan">
+              <Button 
+                type="text" 
+                size="small"
+                icon={<MinusOutlined />}
+                onClick={() => handleUse(record)}
+              />
+            </Tooltip>
+            <Dropdown menu={{ items: menuItems }} placement="bottomRight">
+              <Button type="text" size="small" icon={<MoreOutlined />} />
+            </Dropdown>
+          </Space>
+        )
+      },
+    },
+  ]
 
   const categoryOptions = [
     { label: 'Diş Hekimliği Malzemeleri', value: 'dental_materials' },
@@ -196,6 +471,7 @@ export const StockList: React.FC = () => {
             value={stockStats?.total_value || 0}
             precision={2}
             suffix="TL"
+            prefix={<DollarOutlined />}
           />
         </Card>
       </Col>
@@ -204,7 +480,7 @@ export const StockList: React.FC = () => {
 
   const alertsSection = (
     <>
-      {(criticalStockItems && criticalStockItems.length > 0) && (
+      {criticalStockItems && criticalStockItems.length > 0 && (
         <Alert
           message={`${criticalStockItems.length} ürün kritik seviyede!`}
           description={`Bu ürünler: ${criticalStockItems.slice(0, 3).map(item => item.name).join(', ')}${criticalStockItems.length > 3 ? '...' : ''}`}
@@ -214,7 +490,7 @@ export const StockList: React.FC = () => {
         />
       )}
       
-      {(lowStockItems && lowStockItems.length > 0) && (
+      {lowStockItems && lowStockItems.length > 0 && (
         <Alert
           message={`${lowStockItems.length} ürün düşük seviyede`}
           description={`Bu ürünler: ${lowStockItems.slice(0, 3).map(item => item.name).join(', ')}${lowStockItems.length > 3 ? '...' : ''}`}
@@ -224,7 +500,7 @@ export const StockList: React.FC = () => {
         />
       )}
 
-      {(expiringItems && expiringItems.length > 0) && (
+      {expiringItems && expiringItems.length > 0 && (
         <Alert
           message={`${expiringItems.length} ürünün süresi 30 gün içinde doluyor`}
           description={`Bu ürünler: ${expiringItems.slice(0, 3).map(item => item.name).join(', ')}${expiringItems.length > 3 ? '...' : ''}`}
@@ -236,114 +512,102 @@ export const StockList: React.FC = () => {
     </>
   )
 
-  const filterSection = (
-    <Card style={{ marginBottom: 24 }}>
-      <Row gutter={16} align="middle">
-        <Col span={8}>
-          <Search
-            placeholder="Stok adı ile ara..."
-            onSearch={handleSearch}
-            style={{ width: '100%' }}
-            allowClear
-          />
-        </Col>
-        <Col span={4}>
-          <Select
-            placeholder="Kategori"
-            style={{ width: '100%' }}
-            allowClear
-            onChange={(value) => handleFilterChange('category', value)}
-          >
-            {categoryOptions.map(option => (
-              <Option key={option.value} value={option.value}>
-                {option.label}
-              </Option>
-            ))}
-          </Select>
-        </Col>
-        <Col span={4}>
-          <Select
-            placeholder="Seviye"
-            style={{ width: '100%' }}
-            allowClear
-            onChange={(value) => handleFilterChange('level', value)}
-          >
-            {levelOptions.map(option => (
-              <Option key={option.value} value={option.value}>
-                {option.label}
-              </Option>
-            ))}
-          </Select>
-        </Col>
-        <Col span={4}>
-          <Select
-            placeholder="Durum"
-            style={{ width: '100%' }}
-            allowClear
-            onChange={(value) => handleFilterChange('status', value)}
-          >
-            <Option value="active">Aktif</Option>
-            <Option value="inactive">Pasif</Option>
-            <Option value="expired">Süresi Geçmiş</Option>
-          </Select>
-        </Col>
-        <Col span={4}>
-          <Space>
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />} 
-              onClick={handleAdd}
-            >
-              Yeni Stok
-            </Button>
-            <Button 
-              icon={<ReloadOutlined />} 
-              onClick={() => refetch()}
-            >
-              Yenile
-            </Button>
-          </Space>
-        </Col>
-      </Row>
-    </Card>
-  )
-
   return (
     <div>
       <Title level={2}>Stok Yönetimi</Title>
       
-      
-      
       {statsCards}
       {alertsSection}
-      {filterSection}
+      
+      {/* Filtreler */}
+      <Card style={{ marginBottom: 24 }}>
+        <Row gutter={16} align="middle">
+          <Col span={8}>
+            <Search
+              placeholder="Stok adı ile ara..."
+              onSearch={handleSearch}
+              style={{ width: '100%' }}
+              allowClear
+            />
+          </Col>
+          <Col span={4}>
+            <Select
+              placeholder="Kategori"
+              style={{ width: '100%' }}
+              allowClear
+              onChange={(value) => handleFilterChange('category', value)}
+            >
+              {categoryOptions.map(option => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
+          </Col>
+          <Col span={4}>
+            <Select
+              placeholder="Seviye"
+              style={{ width: '100%' }}
+              allowClear
+              onChange={(value) => handleFilterChange('level', value)}
+            >
+              {levelOptions.map(option => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
+          </Col>
+          <Col span={4}>
+            <Select
+              placeholder="Durum"
+              style={{ width: '100%' }}
+              allowClear
+              onChange={(value) => handleFilterChange('status', value)}
+            >
+              <Option value="active">Aktif</Option>
+              <Option value="inactive">Pasif</Option>
+              <Option value="expired">Süresi Geçmiş</Option>
+            </Select>
+          </Col>
+          <Col span={4}>
+            <Space>
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                onClick={handleAdd}
+              >
+                Yeni Stok
+              </Button>
+              <Button 
+                icon={<ReloadOutlined />} 
+                onClick={() => refetch()}
+              >
+                Yenile
+              </Button>
+            </Space>
+          </Col>
+        </Row>
+      </Card>
 
-      <Spin spinning={isLoading}>
-        {stocks && stocks.length > 0 ? (
-          <Row gutter={[16, 16]}>
-            {stocks.map((stock) => (
-              <Col key={stock.id} xs={24} sm={12} lg={8} xl={6}>
-                <StockCard
-                  stock={stock}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onAdjust={handleAdjust}
-                  onUse={handleUse}
-                />
-              </Col>
-            ))}
-          </Row>
-        ) : (
-          <Empty 
-            description="Henüz stok kaydı bulunmuyor"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          >
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-              İlk Stok Kaydını Oluştur
-            </Button>
-          </Empty>
-        )}
-      </Spin>
+      {/* Ana Tablo */}
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={stocks}
+          rowKey="id"
+          loading={isLoading}
+          pagination={{
+            pageSize: 20,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => 
+              `${range[0]}-${range[1]} / ${total} ürün`,
+          }}
+          scroll={{ x: 1400 }}
+          size="middle"
+        />
+      </Card>
 
       {/* Form Modal */}
       <Modal
@@ -459,7 +723,7 @@ export const StockList: React.FC = () => {
         <Form
           form={useForm}
           layout="vertical"
-          onFinish={onUseSubmit}
+          onFinish={handleStockUsage}
         >
           <Alert
             message={`Mevcut Miktar: ${selectedStock?.current_stock} ${selectedStock?.unit}`}
