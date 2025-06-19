@@ -1,3 +1,5 @@
+// src/modules/stock/components/StockForm.tsx
+
 import React, { useEffect } from 'react'
 import { 
   Form, 
@@ -9,22 +11,31 @@ import {
   Button, 
   Row, 
   Col,
-  Card,
-  Divider
+  Divider,
+  message
 } from 'antd'
 import { 
   PlusOutlined, 
-  EditOutlined, 
   SaveOutlined
 } from '@ant-design/icons'
 import dayjs, { Dayjs } from 'dayjs'
 import { useStocks } from '../hooks/useStocks'
 import { CreateStockRequest, Stock } from '../types/stock.types'
-import { useActiveSuppliers } from '../../supplier/hooks/useSuppliers'
-import { useActiveClinics } from '../../clinic/hooks/useClinics'
 
 const { Option } = Select
 const { TextArea } = Input
+
+// Mock suppliers and clinics - gerçek hook'ları varsa import edin
+const mockSuppliers = [
+  { id: 1, name: 'Tedarikçi A' },
+  { id: 2, name: 'Tedarikçi B' },
+  { id: 3, name: 'Tedarikçi C' }
+]
+
+const mockClinics = [
+  { id: 1, name: 'Ana Klinik', code: 'ANA' },
+  { id: 2, name: 'Şube Klinik', code: 'SB1' }
+]
 
 // StockForm için interface
 interface StockFormProps {
@@ -33,18 +44,18 @@ interface StockFormProps {
   onCancel?: () => void
 }
 
-// StockForm için özel form values interface - Backend ile uyumlu
+// StockForm için özel form values interface
 interface StockFormValues {
   name: string
   description?: string
   brand?: string
   unit: string
   category: string
-  current_stock: number // Backend alan adı
-  min_stock_level: number // Backend alan adı
-  critical_stock_level: number // Backend alan adı
-  yellow_alert_level?: number // Backend alan adı
-  red_alert_level?: number // Backend alan adı
+  current_stock: number
+  min_stock_level: number
+  critical_stock_level: number
+  yellow_alert_level?: number
+  red_alert_level?: number
   purchase_price: number
   currency?: string
   supplier_id: number
@@ -64,16 +75,8 @@ export const StockForm: React.FC<StockFormProps> = ({
 }) => {
   const [form] = Form.useForm()
   
-  // useStocks hook'unu kullan (parametre olmadan)
-  const stocksData = useStocks({}) // Boş filter ile çağır
-  const createStock = stocksData.createStock
-  const updateStock = stocksData.updateStock
-  const isCreating = stocksData.isCreating
-  const isUpdating = stocksData.isUpdating
-
-  // Supplier ve Clinic listelerini çek
-  const { data: suppliers, isLoading: suppliersLoading } = useActiveSuppliers()
-  const { data: clinics, isLoading: clinicsLoading } = useActiveClinics()
+  // useStocks hook'unu kullan
+  const { createStock, updateStock, isCreating, isUpdating } = useStocks({})
 
   useEffect(() => {
     if (stock) {
@@ -99,6 +102,18 @@ export const StockForm: React.FC<StockFormProps> = ({
         storage_location: stock.storage_location,
         is_active: stock.is_active
       })
+    } else {
+      // Yeni stok için default değerler
+      form.setFieldsValue({
+        currency: 'TRY',
+        is_active: true,
+        unit: 'adet',
+        track_expiry: true,
+        track_batch: false,
+        current_stock: 0,
+        min_stock_level: 10,
+        critical_stock_level: 5
+      })
     }
   }, [stock, form])
 
@@ -119,7 +134,7 @@ export const StockForm: React.FC<StockFormProps> = ({
         currency: values.currency || 'TRY',
         supplier_id: values.supplier_id,
         clinic_id: values.clinic_id,
-        purchase_date: values.purchase_date?.format('YYYY-MM-DD') || '',
+        purchase_date: values.purchase_date?.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'),
         expiry_date: values.expiry_date?.format('YYYY-MM-DD'),
         track_expiry: values.track_expiry,
         track_batch: values.track_batch,
@@ -131,13 +146,16 @@ export const StockForm: React.FC<StockFormProps> = ({
 
       if (stock) {
         await updateStock({ id: stock.id, data: formData })
+        message.success('Stok başarıyla güncellendi!')
       } else {
         await createStock(formData)
+        message.success('Stok başarıyla oluşturuldu!')
         form.resetFields()
       }
       onSuccess?.()
     } catch (error) {
       console.error('❌ Stok işlemi başarısız:', error)
+      message.error('İşlem sırasında hata oluştu!')
     }
   }
 
@@ -156,7 +174,7 @@ export const StockForm: React.FC<StockFormProps> = ({
 
   const categoryOptions = [
     { label: 'Diş Hekimliği Malzemeleri', value: 'dental_materials' },
-    { label: 'Dolgu', value: 'Dolgu' },
+    { label: 'Dolgu Malzemeleri', value: 'filling_materials' },
     { label: 'Anestezi Malzemeleri', value: 'anesthesia' },
     { label: 'Cerrahi Aletler', value: 'surgical_instruments' },
     { label: 'Röntgen Malzemeleri', value: 'xray_materials' },
@@ -175,308 +193,300 @@ export const StockForm: React.FC<StockFormProps> = ({
   ]
 
   return (
-    <Card 
-      title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {stock ? <EditOutlined /> : <PlusOutlined />}
-          {stock ? 'Stok Düzenle' : 'Yeni Stok Ekle'}
-        </div>
-      }
+    <Form
+      form={form}
+      layout="vertical"
+      onFinish={onFinish}
+      initialValues={{
+        currency: 'TRY',
+        is_active: true,
+        unit: 'adet',
+        track_expiry: true,
+        track_batch: false,
+        current_stock: 0,
+        min_stock_level: 10,
+        critical_stock_level: 5
+      }}
     >
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={onFinish}
-        initialValues={{
-          currency: 'TRY',
-          is_active: true,
-          unit: 'adet',
-          track_expiry: true,
-          track_batch: false
-        }}
-      >
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              label="Ürün Adı"
-              name="name"
-              rules={[
-                { required: true, message: 'Ürün adı gereklidir!' },
-                { min: 2, message: 'Ürün adı en az 2 karakter olmalıdır!' }
-              ]}
-            >
-              <Input placeholder="Ürün adını girin" />
-            </Form.Item>
-          </Col>
-
-          <Col span={12}>
-            <Form.Item
-              label="Marka"
-              name="brand"
-            >
-              <Input placeholder="Marka adı" />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Form.Item
-          label="Açıklama"
-          name="description"
-        >
-          <TextArea 
-            rows={3} 
-            placeholder="Ürün açıklaması (opsiyonel)" 
-          />
-        </Form.Item>
-
-        <Row gutter={16}>
-          <Col span={8}>
-            <Form.Item
-              label="Birim"
-              name="unit"
-              rules={[{ required: true, message: 'Birim seçimi gereklidir!' }]}
-            >
-              <Select placeholder="Birim seçin">
-                {unitOptions.map(option => (
-                  <Option key={option.value} value={option.value}>
-                    {option.label}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </Col>
-
-          <Col span={16}>
-            <Form.Item
-              label="Kategori"
-              name="category"
-              rules={[{ required: true, message: 'Kategori seçimi gereklidir!' }]}
-            >
-              <Select placeholder="Kategori seçin">
-                {categoryOptions.map(option => (
-                  <Option key={option.value} value={option.value}>
-                    {option.label}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Divider orientation="left">Stok Miktarları</Divider>
-
-        <Row gutter={16}>
-          <Col span={8}>
-            <Form.Item
-              label="Mevcut Stok"
-              name="current_stock"
-              rules={[{ required: true, message: 'Mevcut stok gereklidir!' }]}
-            >
-              <InputNumber 
-                min={0} 
-                style={{ width: '100%' }}
-                placeholder="0"
-              />
-            </Form.Item>
-          </Col>
-
-          <Col span={8}>
-            <Form.Item
-              label="Minimum Stok (Sarı Alarm)"
-              name="min_stock_level"
-              rules={[{ required: true, message: 'Minimum stok gereklidir!' }]}
-            >
-              <InputNumber 
-                min={1} 
-                style={{ width: '100%' }}
-                placeholder="10"
-              />
-            </Form.Item>
-          </Col>
-
-          <Col span={8}>
-            <Form.Item
-              label="Kritik Stok (Kırmızı Alarm)"
-              name="critical_stock_level"
-              rules={[{ required: true, message: 'Kritik stok gereklidir!' }]}
-            >
-              <InputNumber 
-                min={1} 
-                style={{ width: '100%' }}
-                placeholder="5"
-              />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Divider orientation="left">Fiyat Bilgileri</Divider>
-
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              label="Alış Fiyatı"
-              name="purchase_price"
-              rules={[{ required: true, message: 'Alış fiyatı gereklidir!' }]}
-            >
-              <InputNumber 
-                min={0} 
-                precision={2}
-                style={{ width: '100%' }}
-                placeholder="0.00"
-              />
-            </Form.Item>
-          </Col>
-
-          <Col span={12}>
-            <Form.Item
-              label="Para Birimi"
-              name="currency"
-              rules={[{ required: true, message: 'Para birimi seçimi gereklidir!' }]}
-            >
-              <Select>
-                {currencyOptions.map(option => (
-                  <Option key={option.value} value={option.value}>
-                    {option.label}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              label="Depolama Yeri"
-              name="storage_location"
-            >
-              <Input placeholder="Örn: Buzdolabı A-2" />
-            </Form.Item>
-          </Col>
-
-          <Col span={12}>
-            <Form.Item
-              label="Takip Ayarları"
-              style={{ marginBottom: 8 }}
-            >
-              <div>
-                <Form.Item
-                  name="track_expiry"
-                  valuePropName="checked"
-                  style={{ display: 'inline-block', marginRight: 16 }}
-                >
-                  <Switch size="small" /> Son Kullanma Takibi
-                </Form.Item>
-                
-                <Form.Item
-                  name="track_batch"
-                  valuePropName="checked"
-                  style={{ display: 'inline-block' }}
-                >
-                  <Switch size="small" /> Lot Takibi
-                </Form.Item>
-              </div>
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Divider orientation="left">Tedarik Bilgileri</Divider>
-
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              label="Tedarikçi"
-              name="supplier_id"
-              rules={[{ required: true, message: 'Tedarikçi seçimi gereklidir!' }]}
-            >
-              <Select 
-                placeholder="Tedarikçi seçin"
-                loading={suppliersLoading}
-                showSearch
-                optionFilterProp="children"
-              >
-                {suppliers?.map((supplier) => (
-                  <Option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </Col>
-
-          <Col span={12}>
-            <Form.Item
-              label="Klinik"
-              name="clinic_id"
-              rules={[{ required: true, message: 'Klinik seçimi gereklidir!' }]}
-            >
-              <Select 
-                placeholder="Klinik seçin"
-                loading={clinicsLoading}
-                showSearch
-                optionFilterProp="children"
-              >
-                {clinics?.map((clinic) => (
-                  <Option key={clinic.id} value={clinic.id}>
-                    {clinic.name} ({clinic.code})
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              label="Alış Tarihi"
-              name="purchase_date"
-              rules={[{ required: true, message: 'Alış tarihi gereklidir!' }]}
-            >
-              <DatePicker 
-                style={{ width: '100%' }}
-                format="DD/MM/YYYY"
-                placeholder="Alış tarihini seçin"
-              />
-            </Form.Item>
-          </Col>
-
-          <Col span={12}>
-            <Form.Item
-              label="Son Kullanma Tarihi"
-              name="expiry_date"
-            >
-              <DatePicker 
-                style={{ width: '100%' }}
-                format="DD/MM/YYYY"
-                placeholder="Son kullanma tarihi (opsiyonel)"
-              />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Form.Item
-          label="Aktif Durumu"
-          name="is_active"
-          valuePropName="checked"
-        >
-          <Switch checkedChildren="Aktif" unCheckedChildren="Pasif" />
-        </Form.Item>
-
-        <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-          <Button onClick={onCancel} style={{ marginRight: 8 }}>
-            İptal
-          </Button>
-          <Button 
-            type="primary" 
-            htmlType="submit" 
-            icon={stock ? <SaveOutlined /> : <PlusOutlined />}
-            loading={isCreating || isUpdating}
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item
+            label="Ürün Adı"
+            name="name"
+            rules={[
+              { required: true, message: 'Ürün adı gereklidir!' },
+              { min: 2, message: 'Ürün adı en az 2 karakter olmalıdır!' }
+            ]}
           >
-            {stock ? 'Güncelle' : 'Kaydet'}
-          </Button>
-        </Form.Item>
-      </Form>
-    </Card>
+            <Input placeholder="Ürün adını girin" />
+          </Form.Item>
+        </Col>
+
+        <Col span={12}>
+          <Form.Item
+            label="Marka"
+            name="brand"
+          >
+            <Input placeholder="Marka adı" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Form.Item
+        label="Açıklama"
+        name="description"
+      >
+        <TextArea 
+          rows={3} 
+          placeholder="Ürün açıklaması (opsiyonel)" 
+        />
+      </Form.Item>
+
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item
+            label="Birim"
+            name="unit"
+            rules={[{ required: true, message: 'Birim seçimi gereklidir!' }]}
+          >
+            <Select placeholder="Birim seçin">
+              {unitOptions.map(option => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Col>
+
+        <Col span={16}>
+          <Form.Item
+            label="Kategori"
+            name="category"
+            rules={[{ required: true, message: 'Kategori seçimi gereklidir!' }]}
+          >
+            <Select placeholder="Kategori seçin">
+              {categoryOptions.map(option => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Divider orientation="left">Stok Miktarları</Divider>
+
+      <Row gutter={16}>
+        <Col span={8}>
+          <Form.Item
+            label="Mevcut Stok"
+            name="current_stock"
+            rules={[{ required: true, message: 'Mevcut stok gereklidir!' }]}
+          >
+            <InputNumber 
+              min={0} 
+              style={{ width: '100%' }}
+              placeholder="0"
+            />
+          </Form.Item>
+        </Col>
+
+        <Col span={8}>
+          <Form.Item
+            label="Minimum Stok (Sarı Alarm)"
+            name="min_stock_level"
+            rules={[{ required: true, message: 'Minimum stok gereklidir!' }]}
+          >
+            <InputNumber 
+              min={1} 
+              style={{ width: '100%' }}
+              placeholder="10"
+            />
+          </Form.Item>
+        </Col>
+
+        <Col span={8}>
+          <Form.Item
+            label="Kritik Stok (Kırmızı Alarm)"
+            name="critical_stock_level"
+            rules={[{ required: true, message: 'Kritik stok gereklidir!' }]}
+          >
+            <InputNumber 
+              min={1} 
+              style={{ width: '100%' }}
+              placeholder="5"
+            />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Divider orientation="left">Fiyat Bilgileri</Divider>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item
+            label="Alış Fiyatı"
+            name="purchase_price"
+            rules={[{ required: true, message: 'Alış fiyatı gereklidir!' }]}
+          >
+            <InputNumber 
+              min={0} 
+              precision={2}
+              style={{ width: '100%' }}
+              placeholder="0.00"
+            />
+          </Form.Item>
+        </Col>
+
+        <Col span={12}>
+          <Form.Item
+            label="Para Birimi"
+            name="currency"
+            rules={[{ required: true, message: 'Para birimi seçimi gereklidir!' }]}
+          >
+            <Select>
+              {currencyOptions.map(option => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item
+            label="Depolama Yeri"
+            name="storage_location"
+          >
+            <Input placeholder="Örn: Buzdolabı A-2" />
+          </Form.Item>
+        </Col>
+
+        <Col span={12}>
+          <Form.Item
+            label="Takip Ayarları"
+            style={{ marginBottom: 8 }}
+          >
+            <div>
+              <Form.Item
+                name="track_expiry"
+                valuePropName="checked"
+                style={{ display: 'inline-block', marginRight: 16 }}
+              >
+                <Switch /> Son Kullanma Takibi
+              </Form.Item>
+              
+              <Form.Item
+                name="track_batch"
+                valuePropName="checked"
+                style={{ display: 'inline-block' }}
+              >
+                <Switch /> Lot Takibi
+              </Form.Item>
+            </div>
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Divider orientation="left">Tedarik Bilgileri</Divider>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item
+            label="Tedarikçi"
+            name="supplier_id"
+            rules={[{ required: true, message: 'Tedarikçi seçimi gereklidir!' }]}
+          >
+            <Select 
+              placeholder="Tedarikçi seçin"
+              showSearch
+              optionFilterProp="children"
+            >
+              {mockSuppliers.map((supplier) => (
+                <Option key={supplier.id} value={supplier.id}>
+                  {supplier.name}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Col>
+
+        <Col span={12}>
+          <Form.Item
+            label="Klinik"
+            name="clinic_id"
+            rules={[{ required: true, message: 'Klinik seçimi gereklidir!' }]}
+          >
+            <Select 
+              placeholder="Klinik seçin"
+              showSearch
+              optionFilterProp="children"
+            >
+              {mockClinics.map((clinic) => (
+                <Option key={clinic.id} value={clinic.id}>
+                  {clinic.name} ({clinic.code})
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item
+            label="Alış Tarihi"
+            name="purchase_date"
+            rules={[{ required: true, message: 'Alış tarihi gereklidir!' }]}
+          >
+            <DatePicker 
+              style={{ width: '100%' }}
+              format="DD/MM/YYYY"
+              placeholder="Alış tarihini seçin"
+            />
+          </Form.Item>
+        </Col>
+
+        <Col span={12}>
+          <Form.Item
+            label="Son Kullanma Tarihi"
+            name="expiry_date"
+          >
+            <DatePicker 
+              style={{ width: '100%' }}
+              format="DD/MM/YYYY"
+              placeholder="Son kullanma tarihi (opsiyonel)"
+            />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Form.Item
+        label="Aktif Durumu"
+        name="is_active"
+        valuePropName="checked"
+      >
+        <Switch checkedChildren="Aktif" unCheckedChildren="Pasif" />
+      </Form.Item>
+
+      <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+        <Button onClick={onCancel} style={{ marginRight: 8 }}>
+          İptal
+        </Button>
+        <Button 
+          type="primary" 
+          htmlType="submit" 
+          icon={stock ? <SaveOutlined /> : <PlusOutlined />}
+          loading={isCreating || isUpdating}
+        >
+          {stock ? 'Güncelle' : 'Kaydet'}
+        </Button>
+      </Form.Item>
+    </Form>
   )
 }
