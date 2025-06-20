@@ -62,6 +62,20 @@ export const stockApi = {
   delete: (id: number): Promise<ApiResponse<null>> =>
     api.delete(`/stocks/${id}`),
 
+  // ✅ YENİ ENDPOINT'LER - PASIF/AKTİF/KALICI SİLME
+  
+  // Soft Delete (Pasif yap)
+  softDelete: (id: number): Promise<ApiResponse<Stock>> =>
+    api.put(`/stocks/${id}/deactivate`),
+
+  // Hard Delete (Kalıcı sil)
+  hardDelete: (id: number): Promise<ApiResponse<null>> =>
+    api.delete(`/stocks/${id}/force`),
+
+  // Reaktive et (Pasif'ten aktif'e çevir)
+  reactivate: (id: number): Promise<ApiResponse<Stock>> =>
+    api.put(`/stocks/${id}/reactivate`),
+
   // Stock Operations
   adjustStock: (id: number, data: StockAdjustmentRequest): Promise<ApiResponse<Stock>> =>
     api.post(`/stocks/${id}/adjust`, data),

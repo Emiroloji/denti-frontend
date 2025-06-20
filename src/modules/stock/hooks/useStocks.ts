@@ -69,6 +69,41 @@ export const useStocks = (filters?: StockFilter) => {
     }
   })
 
+  // ✅ YENİ MUTATIONS - PASIF/AKTİF/KALICI SİLME
+
+  const softDeleteMutation = useMutation({
+    mutationFn: stockApi.softDelete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stocks'] })
+      message.success('Stok pasif duruma getirildi!')
+    },
+    onError: (error: Error & { response?: { data?: { message?: string } } }) => {
+      message.error(error.response?.data?.message || 'Stok pasif yapılırken hata oluştu!')
+    }
+  })
+
+  const hardDeleteMutation = useMutation({
+    mutationFn: stockApi.hardDelete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stocks'] })
+      message.success('Stok kalıcı olarak silindi!')
+    },
+    onError: (error: Error & { response?: { data?: { message?: string } } }) => {
+      message.error(error.response?.data?.message || 'Stok silinirken hata oluştu!')
+    }
+  })
+
+  const reactivateMutation = useMutation({
+    mutationFn: stockApi.reactivate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stocks'] })
+      message.success('Stok tekrar aktif edildi!')
+    },
+    onError: (error: Error & { response?: { data?: { message?: string } } }) => {
+      message.error(error.response?.data?.message || 'Stok aktif edilirken hata oluştu!')
+    }
+  })
+
   const adjustStockMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: StockAdjustmentRequest }) =>
       stockApi.adjustStock(id, data),
@@ -100,12 +135,23 @@ export const useStocks = (filters?: StockFilter) => {
     refetch,
     createStock: createMutation.mutateAsync,
     updateStock: updateMutation.mutateAsync,
-    deleteStock: deleteMutation.mutateAsync,
+    deleteStock: deleteMutation.mutateAsync, // Eski delete (akıllı silme)
+    
+    // ✅ YENİ METODLAR
+    softDeleteStock: softDeleteMutation.mutateAsync,      // Pasif yap
+    hardDeleteStock: hardDeleteMutation.mutateAsync,      // Kalıcı sil
+    reactivateStock: reactivateMutation.mutateAsync,      // Aktif et
+    
     adjustStock: adjustStockMutation.mutateAsync,
     useStock: useStockMutation.mutateAsync,
+    
+    // Loading states
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
+    isSoftDeleting: softDeleteMutation.isPending,         // Pasif yapma loading
+    isHardDeleting: hardDeleteMutation.isPending,         // Kalıcı silme loading
+    isReactivating: reactivateMutation.isPending,         // Aktif etme loading
     isAdjusting: adjustStockMutation.isPending,
     isUsing: useStockMutation.isPending
   }

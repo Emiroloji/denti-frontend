@@ -1,7 +1,7 @@
 // src/modules/stock/components/StockTable.tsx
 
 import React from 'react'
-import { Table, Tag, Tooltip, Space, Button, Dropdown, Modal, message } from 'antd'
+import { Table, Tag, Tooltip, Space, Button, Dropdown, Modal } from 'antd'
 import { 
   EditOutlined,
   DeleteOutlined,
@@ -11,7 +11,10 @@ import {
   CalendarOutlined,
   ShopOutlined,
   BankOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  PauseOutlined,
+  PlayCircleOutlined,
+  StopOutlined
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import type { ColumnsType } from 'antd/es/table'
@@ -23,7 +26,9 @@ interface StockTableProps {
   stocks: Stock[]
   loading: boolean
   onEdit: (stock: Stock) => void
-  onDelete: (id: number) => void
+  onSoftDelete: (id: number) => void      // ✅ YENİ - Pasif yap
+  onHardDelete: (id: number) => void      // ✅ YENİ - Kalıcı sil
+  onReactivate: (id: number) => void      // ✅ YENİ - Aktif et
   onAdjust: (stock: Stock) => void
   onUse: (stock: Stock) => void
 }
@@ -32,121 +37,187 @@ export const StockTable: React.FC<StockTableProps> = ({
   stocks,
   loading,
   onEdit,
-  onDelete,
+  onSoftDelete,     // ✅ YENİ
+  onHardDelete,     // ✅ YENİ  
+  onReactivate,     // ✅ YENİ
   onAdjust,
   onUse,
 }) => {
-  // Geliştirilmiş delete handler
-  const handleDelete = (record: Stock) => {
+  // ✅ GELİŞMİŞ SILME HANDLER - Pasif/Aktif/Kalıcı Silme Seçenekleri
+  const handleAdvancedDelete = (record: Stock) => {
+    const isActive = record.is_active !== false // Default true
+    const isDeleted = record.status === 'deleted'
+
     Modal.confirm({
       title: (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <ExclamationCircleOutlined style={{ color: '#faad14' }} />
-          <span>Stok Silme Onayı</span>
+          <span>Stok İşlemi Seçin</span>
         </div>
       ),
       content: (
         <div>
-          <p><strong>Silinecek Stok:</strong> {record.name}</p>
+          <p><strong>Stok:</strong> {record.name}</p>
           <p><strong>Mevcut Miktar:</strong> {record.current_stock} {record.unit}</p>
+          <p><strong>Mevcut Durum:</strong> {
+            isDeleted ? '🗑️ Silinmiş' : 
+            !isActive ? '⏸️ Pasif' : 
+            '✅ Aktif'
+          }</p>
           
           <div style={{ 
-            background: '#f6ffed', 
-            border: '1px solid #b7eb8f', 
-            borderRadius: 6, 
+            background: '#f0f0f0', 
             padding: 12, 
+            borderRadius: 6, 
             marginTop: 16 
           }}>
-            <p style={{ margin: 0, fontSize: 12, color: '#52c41a' }}>
-              ✅ <strong>Güvenli Silme:</strong> Bu stok için işlem kayıtları varsa kalıcı olarak silinmez, 
-              sadece "pasif" duruma getirilir ve stok miktarı sıfırlanır.
+            <p style={{ margin: 0, fontSize: 13 }}>
+              <strong>Seçenekleriniz:</strong><br/>
+              • <strong>Pasif Yap:</strong> Stok görünür ama kullanılamaz (geri alınabilir)<br/>
+              • <strong>Aktif Et:</strong> Pasif stoku tekrar aktif yapar<br/>
+              • <strong>Kalıcı Sil:</strong> Stok tamamen silinir (geri alınamaz)<br/>
+              <em style={{ color: '#666' }}>* İşlem kayıtları olan stoklar kalıcı silinemez</em>
             </p>
           </div>
         </div>
       ),
-      okText: 'Evet, Sil',
-      cancelText: 'İptal',
-      okType: 'danger',
-      width: 500,
-      onOk: async () => {
-        try {
-          await onDelete(record.id)
+      footer: (
+        <div style={{ textAlign: 'right' }}>
+          <Button key="cancel" onClick={() => Modal.destroyAll()}>
+            İptal
+          </Button>
           
-          // Başarı mesajı - soft delete mi hard delete mi olduğunu anlayalım
-          message.success({
-            content: (
-              <div>
-                <div><strong>Stok başarıyla silindi!</strong></div>
-                <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                  {record.current_stock > 0 || (record.internal_usage_count && record.internal_usage_count > 0)
-                    ? '📝 İşlem kayıtları nedeniyle stok pasif duruma getirildi'
-                    : '🗑️ Stok kalıcı olarak silindi'
-                  }
-                </div>
-              </div>
-            ),
-            duration: 4
-          })
-        } catch (error: unknown) {
-          console.error('Silme hatası:', error)
-          const errorMessage = error && typeof error === 'object' && 'response' in error 
-            ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Bilinmeyen hata'
-            : 'Bilinmeyen hata'
-          message.error('Stok silinirken hata oluştu: ' + errorMessage)
-        }
-      }
+          {/* Pasif Yap Butonu - Sadece aktif stoklar için */}
+          {isActive && !isDeleted && (
+            <Button 
+              key="soft" 
+              type="default" 
+              icon={<PauseOutlined />}
+              style={{ marginLeft: 8, backgroundColor: '#faad14', borderColor: '#faad14', color: 'white' }}
+              onClick={async () => {
+                Modal.destroyAll()
+                await onSoftDelete(record.id)
+              }}
+            >
+              ⏸️ Pasif Yap
+            </Button>
+          )}
+          
+          {/* Aktif Et Butonu - Sadece pasif stoklar için */}
+          {!isActive && !isDeleted && (
+            <Button 
+              key="reactivate" 
+              type="primary" 
+              icon={<PlayCircleOutlined />}
+              style={{ marginLeft: 8, backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+              onClick={async () => {
+                Modal.destroyAll()
+                await onReactivate(record.id)
+              }}
+            >
+              ✅ Aktif Et
+            </Button>
+          )}
+          
+          {/* Kalıcı Sil Butonu - Silinmiş olanlar hariç */}
+          {!isDeleted && (
+            <Button 
+              key="hard" 
+              type="primary" 
+              danger 
+              icon={<StopOutlined />}
+              style={{ marginLeft: 8 }}
+              onClick={async () => {
+                Modal.destroyAll()
+                await onHardDelete(record.id)
+              }}
+            >
+              🗑️ Kalıcı Sil
+            </Button>
+          )}
+        </div>
+      ),
+      width: 600,
     })
   }
 
-  // Tablo kolonları
+  // Status hesaplama - DÜZELTİLMİŞ VERSİYON
+  const getStockStatus = (record: Stock) => {
+    console.log('🔍 Stock Debug:', {
+      name: record.name,
+      status: record.status,
+      is_active: record.is_active,
+      type: typeof record.is_active
+    })
+
+    // Backend'den status field'ı varsa öncelik ver
+    if (record.status) {
+      if (record.status === 'deleted') return { type: 'deleted', text: '🗑️ Silindi', color: 'red' }
+      if (record.status === 'inactive') return { type: 'inactive', text: '⏸️ Pasif', color: 'orange' }
+      if (record.status === 'active') return { type: 'active', text: '✅ Aktif', color: 'green' }
+    }
+
+    // is_active field'ına göre değerlendir - STRICT CHECK
+    if (record.is_active === false) {
+      return { type: 'inactive', text: '⏸️ Pasif', color: 'orange' }
+    }
+    
+    // Default olarak aktif kabul et (true, null, undefined için)
+    return { type: 'active', text: '✅ Aktif', color: 'green' }
+  }
+
   const columns: ColumnsType<Stock> = [
     {
       title: 'Ürün Bilgileri',
       key: 'product_info',
       width: 300,
-      render: (_, record) => (
-        <div>
-          <div style={{ 
-            fontWeight: 600, 
-            marginBottom: 4,
-            opacity: (record.status === 'deleted' || !record.is_active) ? 0.5 : 1,
-            textDecoration: record.status === 'deleted' ? 'line-through' : 'none',
-            color: record.status === 'deleted' ? '#999' : 'inherit'
-          }}>
-            {record.name}
-            {record.status === 'deleted' && (
-              <Tag color="red" style={{ marginLeft: 8 }}>
-                🗑️ SİLİNDİ
+      render: (_, record) => {
+        const status = getStockStatus(record)
+        
+        return (
+          <div>
+            <div style={{ 
+              fontWeight: 600, 
+              marginBottom: 4,
+              opacity: status.type === 'deleted' ? 0.5 : 1,
+              textDecoration: status.type === 'deleted' ? 'line-through' : 'none',
+              color: status.type === 'deleted' ? '#999' : 'inherit'
+            }}>
+              {record.name}
+              {status.type === 'deleted' && (
+                <Tag color="red" style={{ marginLeft: 8 }}>
+                  🗑️ SİLİNDİ
+                </Tag>
+              )}
+              {status.type === 'inactive' && (
+                <Tag color="orange" style={{ marginLeft: 8 }}>
+                  ⏸️ PASİF
+                </Tag>
+              )}
+            </div>
+            {record.brand && (
+              <Tag 
+                color="blue" 
+                style={{ 
+                  opacity: status.type === 'deleted' ? 0.5 : 1 
+                }}
+              >
+                {record.brand}
               </Tag>
             )}
-            {!record.is_active && record.status !== 'deleted' && (
-              <Tag color="orange" style={{ marginLeft: 8 }}>
-                ⏸️ PASİF
-              </Tag>
+            {record.description && (
+              <div style={{ 
+                fontSize: 12, 
+                color: status.type === 'deleted' ? '#ccc' : '#666', 
+                marginTop: 4,
+                textDecoration: status.type === 'deleted' ? 'line-through' : 'none'
+              }}>
+                {record.description}
+              </div>
             )}
           </div>
-          {record.brand && (
-            <Tag 
-              color="blue" 
-              style={{ 
-                opacity: record.status === 'deleted' ? 0.5 : 1 
-              }}
-            >
-              {record.brand}
-            </Tag>
-          )}
-          {record.description && (
-            <div style={{ 
-              fontSize: 12, 
-              color: record.status === 'deleted' ? '#ccc' : '#666', 
-              marginTop: 4,
-              textDecoration: record.status === 'deleted' ? 'line-through' : 'none'
-            }}>
-              {record.description}
-            </div>
-          )}
-        </div>
-      ),
+        )
+      },
     },
     {
       title: 'Kategori',
@@ -162,26 +233,30 @@ export const StockTable: React.FC<StockTableProps> = ({
       key: 'current_stock',
       width: 120,
       align: 'center',
-      render: (_, record) => (
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ 
-            fontWeight: 600, 
-            fontSize: 16,
-            color: record.current_stock === 0 ? '#999' : 
-                   record.status === 'deleted' ? '#ccc' : 'inherit',
-            textDecoration: record.status === 'deleted' ? 'line-through' : 'none'
-          }}>
-            {record.current_stock}
+      render: (_, record) => {
+        const status = getStockStatus(record)
+        
+        return (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ 
+              fontWeight: 600, 
+              fontSize: 16,
+              color: record.current_stock === 0 ? '#999' : 
+                     status.type === 'deleted' ? '#ccc' : 'inherit',
+              textDecoration: status.type === 'deleted' ? 'line-through' : 'none'
+            }}>
+              {record.current_stock}
+            </div>
+            <div style={{ 
+              fontSize: 12, 
+              color: status.type === 'deleted' ? '#ccc' : '#666',
+              textDecoration: status.type === 'deleted' ? 'line-through' : 'none'
+            }}>
+              {record.unit}
+            </div>
           </div>
-          <div style={{ 
-            fontSize: 12, 
-            color: record.status === 'deleted' ? '#ccc' : '#666',
-            textDecoration: record.status === 'deleted' ? 'line-through' : 'none'
-          }}>
-            {record.unit}
-          </div>
-        </div>
-      ),
+        )
+      },
     },
     {
       title: 'Durum',
@@ -189,34 +264,16 @@ export const StockTable: React.FC<StockTableProps> = ({
       width: 120,
       align: 'center',
       render: (_, record) => {
-        // ✅ FALLBACK: Backend'den status gelmezse is_active'e göre hesapla
-        const actualStatus = record.status || (record.is_active !== false ? 'active' : 'inactive')
-        const isActive = record.is_active !== false // Default true
+        const status = getStockStatus(record)
         
-        if (actualStatus === 'deleted') {
-          return (
-            <Tag 
-              color="red" 
-              style={{ 
-                textDecoration: 'line-through',
-                opacity: 0.7 
-              }}
-            >
-              🗑️ Silindi
+        return (
+          <div>
+            <Tag color={status.color}>
+              {status.text}
             </Tag>
-          )
-        }
-        if (!isActive) {
-          return (
-            <Tag 
-              color="orange"
-              style={{ opacity: 0.8 }}
-            >
-              ⏸️ Pasif
-            </Tag>
-          )
-        }
-        return <StockLevelBadge stock={record} />
+            {status.type === 'active' && <StockLevelBadge stock={record} />}
+          </div>
+        )
       },
     },
     {
@@ -224,48 +281,56 @@ export const StockTable: React.FC<StockTableProps> = ({
       key: 'limits',
       width: 100,
       align: 'center',
-      render: (_, record) => (
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ 
-            fontSize: 12,
-            color: record.status === 'deleted' ? '#ccc' : 'inherit',
-            textDecoration: record.status === 'deleted' ? 'line-through' : 'none'
-          }}>
-            Min: {record.min_stock_level}
+      render: (_, record) => {
+        const status = getStockStatus(record)
+        
+        return (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ 
+              fontSize: 12,
+              color: status.type === 'deleted' ? '#ccc' : 'inherit',
+              textDecoration: status.type === 'deleted' ? 'line-through' : 'none'
+            }}>
+              Min: {record.min_stock_level}
+            </div>
+            <div style={{ 
+              fontSize: 12, 
+              color: status.type === 'deleted' ? '#ccc' : '#ff4d4f',
+              textDecoration: status.type === 'deleted' ? 'line-through' : 'none'
+            }}>
+              Kritik: {record.critical_stock_level}
+            </div>
           </div>
-          <div style={{ 
-            fontSize: 12, 
-            color: record.status === 'deleted' ? '#ccc' : '#ff4d4f',
-            textDecoration: record.status === 'deleted' ? 'line-through' : 'none'
-          }}>
-            Kritik: {record.critical_stock_level}
-          </div>
-        </div>
-      ),
+        )
+      },
     },
     {
       title: 'Fiyat',
       key: 'price',
       width: 120,
       align: 'right',
-      render: (_, record) => (
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ 
-            fontWeight: 600,
-            color: record.status === 'deleted' ? '#ccc' : 'inherit',
-            textDecoration: record.status === 'deleted' ? 'line-through' : 'none'
-          }}>
-            {record.purchase_price} {record.currency}
+      render: (_, record) => {
+        const status = getStockStatus(record)
+        
+        return (
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ 
+              fontWeight: 600,
+              color: status.type === 'deleted' ? '#ccc' : 'inherit',
+              textDecoration: status.type === 'deleted' ? 'line-through' : 'none'
+            }}>
+              {record.purchase_price} {record.currency || 'TRY'}
+            </div>
+            <div style={{ 
+              fontSize: 12, 
+              color: status.type === 'deleted' ? '#ccc' : '#666',
+              textDecoration: status.type === 'deleted' ? 'line-through' : 'none'
+            }}>
+              Toplam: {(record.purchase_price * record.current_stock).toLocaleString()} {record.currency || 'TRY'}
+            </div>
           </div>
-          <div style={{ 
-            fontSize: 12, 
-            color: record.status === 'deleted' ? '#ccc' : '#666',
-            textDecoration: record.status === 'deleted' ? 'line-through' : 'none'
-          }}>
-            Toplam: {(record.purchase_price * record.current_stock).toLocaleString()} {record.currency}
-          </div>
-        </div>
-      ),
+        )
+      },
     },
     {
       title: 'Son Kullanma',
@@ -312,11 +377,13 @@ export const StockTable: React.FC<StockTableProps> = ({
     {
       title: 'İşlemler',
       key: 'actions',
-      width: 120,
+      width: 150,
       align: 'center',
       fixed: 'right',
       render: (_, record) => {
-        const isDeleted = record.status === 'deleted'
+        const status = getStockStatus(record)
+        const isDeleted = status.type === 'deleted'
+        const isInactive = status.type === 'inactive'
         
         const menuItems: MenuProps['items'] = [
           {
@@ -324,14 +391,14 @@ export const StockTable: React.FC<StockTableProps> = ({
             label: 'Stok Ayarla',
             icon: <PlusOutlined />,
             onClick: () => onAdjust(record),
-            disabled: isDeleted
+            disabled: isDeleted || isInactive
           },
           {
             key: 'use',
             label: 'Stok Kullan',
             icon: <MinusOutlined />,
             onClick: () => onUse(record),
-            disabled: isDeleted || record.current_stock <= 0
+            disabled: isDeleted || isInactive || record.current_stock <= 0
           },
           {
             type: 'divider'
@@ -340,21 +407,20 @@ export const StockTable: React.FC<StockTableProps> = ({
             key: 'edit',
             label: 'Düzenle',
             icon: <EditOutlined />,
-            onClick: () => onEdit(record)
+            onClick: () => onEdit(record),
+            disabled: isDeleted
           },
           {
-            key: 'delete',
-            label: isDeleted ? 'Zaten Silindi' : 'Sil',
+            key: 'delete-options',
+            label: 'Durum İşlemleri',
             icon: <DeleteOutlined />,
-            danger: !isDeleted,
-            disabled: isDeleted,
-            onClick: () => !isDeleted && handleDelete(record)
+            onClick: () => handleAdvancedDelete(record)
           }
         ]
 
         return (
           <Space>
-            <Tooltip title={isDeleted ? 'Silinen stok düzenlenemez' : 'Düzenle'}>
+            <Tooltip title={isDeleted || isInactive ? 'Pasif/Silinmiş stok düzenlenemez' : 'Düzenle'}>
               <Button 
                 type="text" 
                 size="small"
@@ -363,15 +429,32 @@ export const StockTable: React.FC<StockTableProps> = ({
                 disabled={isDeleted}
               />
             </Tooltip>
-            <Tooltip title={isDeleted ? 'Silinen stok kullanılamaz' : 'Stok Kullan'}>
+            
+            <Tooltip title="Stok İşlemleri">
               <Button 
                 type="text" 
                 size="small"
                 icon={<MinusOutlined />}
                 onClick={() => onUse(record)}
-                disabled={isDeleted || record.current_stock <= 0}
+                disabled={isDeleted || isInactive || record.current_stock <= 0}
               />
             </Tooltip>
+
+            {/* ✅ YENİ - Gelişmiş Silme/Durum Butonu */}
+            <Tooltip title="Durum İşlemleri (Pasif/Aktif/Sil)">
+              <Button 
+                type="text" 
+                size="small"
+                icon={<DeleteOutlined />}
+                onClick={() => handleAdvancedDelete(record)}
+                style={{ 
+                  color: isDeleted ? '#ccc' : 
+                         isInactive ? '#faad14' : 
+                         '#ff4d4f' 
+                }}
+              />
+            </Tooltip>
+            
             <Dropdown menu={{ items: menuItems }} placement="bottomRight">
               <Button type="text" size="small" icon={<MoreOutlined />} />
             </Dropdown>
@@ -394,27 +477,23 @@ export const StockTable: React.FC<StockTableProps> = ({
         showTotal: (total, range) => 
           `${range[0]}-${range[1]} / ${total} ürün`,
       }}
-      scroll={{ x: 1400 }}
+      scroll={{ x: 1600 }}
       size="middle"
-      rowClassName={(record) => {
-        // Ant Design'ın built-in class'larını kullan
-        if (record.status === 'deleted') return 'ant-table-row-selected'
-        return ''
-      }}
-      onRow={(record) => ({
-        style: {
-          backgroundColor: record.status === 'deleted' 
-            ? '#fff2f0' 
-            : !record.is_active 
-            ? '#fffbe6' 
-            : undefined,
-          opacity: record.status === 'deleted' 
-            ? 0.6 
-            : !record.is_active 
-            ? 0.8 
-            : 1,
+      onRow={(record) => {
+        const status = getStockStatus(record)
+        return {
+          style: {
+            backgroundColor: 
+              status.type === 'deleted' ? '#fff2f0' : 
+              status.type === 'inactive' ? '#fffbe6' : 
+              undefined,
+            opacity: 
+              status.type === 'deleted' ? 0.6 : 
+              status.type === 'inactive' ? 0.8 : 
+              1,
+          }
         }
-      })}
+      }}
     />
   )
 }

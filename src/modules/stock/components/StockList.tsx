@@ -32,11 +32,16 @@ export const StockList: React.FC = () => {
     stocks, 
     isLoading, 
     refetch, 
-    deleteStock, 
+    softDeleteStock,      // ✅ YENİ - Pasif yap
+    hardDeleteStock,      // ✅ YENİ - Kalıcı sil
+    reactivateStock,      // ✅ YENİ - Aktif et
     adjustStock, 
     useStock: executeStockUsage,
     isAdjusting,
-    isUsing
+    isUsing,
+    isSoftDeleting,       // ✅ YENİ Loading state
+    isHardDeleting,       // ✅ YENİ Loading state
+    isReactivating        // ✅ YENİ Loading state
   } = useStocks(filters)
 
   // Computed data (manual calculations since hooks are disabled)
@@ -102,9 +107,30 @@ export const StockList: React.FC = () => {
     setIsFormModalVisible(true)
   }, [])
 
-  const handleDelete = useCallback(async (id: number) => {
-    await deleteStock(id)
-  }, [deleteStock])
+  // ✅ YENİ HANDLER'LAR - Pasif/Aktif/Kalıcı Silme
+  const handleSoftDelete = useCallback(async (id: number) => {
+    try {
+      await softDeleteStock(id)
+    } catch (error) {
+      console.error('Soft delete hatası:', error)
+    }
+  }, [softDeleteStock])
+
+  const handleHardDelete = useCallback(async (id: number) => {
+    try {
+      await hardDeleteStock(id)
+    } catch (error) {
+      console.error('Hard delete hatası:', error)
+    }
+  }, [hardDeleteStock])
+
+  const handleReactivate = useCallback(async (id: number) => {
+    try {
+      await reactivateStock(id)
+    } catch (error) {
+      console.error('Reactivate hatası:', error)
+    }
+  }, [reactivateStock])
 
   const handleAdjust = useCallback((stock: Stock) => {
     setSelectedStock(stock)
@@ -176,13 +202,15 @@ export const StockList: React.FC = () => {
         onRefresh={refetch}
       />
 
-      {/* Ana Tablo */}
+      {/* Ana Tablo - ✅ YENİ HANDLER'LAR EKLENDİ */}
       <Card>
         <StockTable 
           stocks={stocks || []}
-          loading={isLoading}
+          loading={isLoading || isSoftDeleting || isHardDeleting || isReactivating}
           onEdit={handleEdit}
-          onDelete={handleDelete}
+          onSoftDelete={handleSoftDelete}      // ✅ YENİ - Pasif yap
+          onHardDelete={handleHardDelete}      // ✅ YENİ - Kalıcı sil
+          onReactivate={handleReactivate}      // ✅ YENİ - Aktif et
           onAdjust={handleAdjust}
           onUse={handleUse}
         />
