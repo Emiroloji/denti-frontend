@@ -1,11 +1,11 @@
-// src/modules/clinic/hooks/useClinics.ts
+// src/modules/clinics/hooks/useClinics.ts
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { message } from 'antd'
 import { clinicApi } from '../services/clinicApi'
-import { 
-  UpdateClinicRequest, 
-  ClinicFilter 
+import {
+  UpdateClinicRequest,
+  ClinicFilter
 } from '../types/clinic.types'
 
 export const useClinics = (filters?: ClinicFilter) => {
@@ -19,7 +19,9 @@ export const useClinics = (filters?: ClinicFilter) => {
   } = useQuery({
     queryKey: ['clinics', filters],
     queryFn: () => clinicApi.getAll(filters),
-    select: (data) => data.data
+    select: (data) => data.data,
+    staleTime: 2 * 60 * 1000, // 2 dakika
+    refetchOnWindowFocus: false
   })
 
   const createMutation = useMutation({
@@ -76,7 +78,9 @@ export const useClinic = (id: number) => {
     queryKey: ['clinics', id],
     queryFn: () => clinicApi.getById(id),
     select: (data) => data.data,
-    enabled: !!id
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000, // 5 dakika
+    refetchOnWindowFocus: false
   })
 }
 
@@ -85,16 +89,23 @@ export const useActiveClinics = () => {
   return useQuery({
     queryKey: ['clinics', 'active'],
     queryFn: clinicApi.getActive,
-    select: (data) => data.data
+    select: (data) => data.data,
+    staleTime: 5 * 60 * 1000, // 5 dakika
+    refetchOnWindowFocus: false
   })
 }
 
-// Klinik istatistikleri için hook
+// Klinik istatistikleri için hook - OPTIMIZE EDİLDİ
 export const useClinicStats = () => {
   return useQuery({
     queryKey: ['clinics', 'stats'],
     queryFn: clinicApi.getStats,
-    select: (data) => data.data
+    select: (data) => data.data,
+    staleTime: 10 * 60 * 1000, // 10 dakika cache
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchInterval: false,
+    retry: 1
   })
 }
 
@@ -104,7 +115,9 @@ export const useClinicStocks = (clinicId: number) => {
     queryKey: ['clinics', clinicId, 'stocks'],
     queryFn: () => clinicApi.getStocks(clinicId),
     select: (data) => data.data,
-    enabled: !!clinicId
+    enabled: !!clinicId,
+    staleTime: 3 * 60 * 1000, // 3 dakika
+    refetchOnWindowFocus: false
   })
 }
 
@@ -114,6 +127,8 @@ export const useClinicSummary = (clinicId: number) => {
     queryKey: ['clinics', clinicId, 'summary'],
     queryFn: () => clinicApi.getSummary(clinicId),
     select: (data) => data.data,
-    enabled: !!clinicId
+    enabled: !!clinicId,
+    staleTime: 3 * 60 * 1000, // 3 dakika
+    refetchOnWindowFocus: false
   })
 }

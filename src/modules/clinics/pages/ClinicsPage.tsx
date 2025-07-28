@@ -1,4 +1,4 @@
-// src/modules/clinic/pages/ClinicsPage.tsx
+// src/modules/clinics/pages/ClinicsPage.tsx
 
 import React from 'react'
 import { ClinicList } from '../components/ClinicList'

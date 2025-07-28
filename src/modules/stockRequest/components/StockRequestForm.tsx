@@ -22,7 +22,7 @@ import {
   WarningOutlined
 } from '@ant-design/icons'
 import { useStockRequests } from '../hooks/useStockRequests'
-import { useClinics } from '@/modules/clinic/hooks/useClinics'
+import { useClinics } from '@/modules/clinics/hooks/useClinics'
 import { useStocks } from '@/modules/stock/hooks/useStocks'
 import { CreateStockRequestRequest } from '../types/stockRequest.types'
 

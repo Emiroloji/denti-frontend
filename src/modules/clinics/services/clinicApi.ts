@@ -1,4 +1,4 @@
-// src/modules/clinic/services/clinicApi.ts
+// src/modules/clinics/services/clinicApi.ts
 
 import { api } from '../../../shared/services/api'
 import { 

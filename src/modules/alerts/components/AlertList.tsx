@@ -31,7 +31,7 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useAlerts, useAlertStats } from '../hooks/useAlerts'
-import { useClinics } from '@/modules/clinic/hooks/useClinics'
+import { useClinics } from '@/modules/clinics/hooks/useClinics'
 import { AlertCard } from './AlertCard'
 import { AlertDashboard } from './AlertDashboard'
 import { AlertSeverityBadge } from './AlertSeverityBadge'

@@ -412,7 +412,7 @@ export const SupplierList: React.FC = () => {
         onCancel={() => setIsFormModalVisible(false)}
         footer={null}
         width={800}
-        destroyOnClose
+        
       >
         <SupplierForm 
           supplier={editingSupplier || undefined}

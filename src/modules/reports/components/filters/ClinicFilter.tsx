@@ -9,8 +9,8 @@ import {
   ExclamationCircleOutlined,
   TeamOutlined
 } from '@ant-design/icons'
-import { useClinics } from '@/modules/clinic/hooks/useClinics'
-import type { Clinic } from '@/modules/clinic/types/clinic.types'
+import { useClinics } from '@/modules/clinics/hooks/useClinics'
+import type { Clinic } from '@/modules/clinics/types/clinic.types'
 import type { ReportFilter } from '../../types/reports.types'
 
 const { Option } = Select

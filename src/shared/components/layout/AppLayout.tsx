@@ -16,24 +16,11 @@ import {
   SettingOutlined,
 } from '@ant-design/icons'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
-// import { usePendingAlertCount } from '@/modules/alerts/hooks/useAlerts' // COMMENT OUT
 import type { MenuProps } from 'antd'
 
 const { Header, Sider, Content } = Layout
 const { Title } = Typography
 
-// Pending alert badge component'i - DISABLED (component kaldırıldı)
-// const PendingAlertBadge: React.FC = () => {
-//   const pendingCount = 0 // Sabit 0 veya undefined
-//   if (!pendingCount || pendingCount === 0) return null
-//   return (
-//     <Badge 
-//       count={pendingCount} 
-//       size="small" 
-//       style={{ backgroundColor: '#ff4d4f' }}
-//     />
-//   )
-// }
 
 export const AppLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false)
@@ -56,7 +43,7 @@ export const AppLayout: React.FC = () => {
     {
       key: '/clinics',
       icon: <BankOutlined />,
-      label: 'Klinikler', 
+      label: 'Kliniklers', 
       onClick: () => navigate('/clinics')
     },
     {
@@ -71,8 +58,6 @@ export const AppLayout: React.FC = () => {
       label: (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <span>Uyarılar</span>
-          {/* Badge'i geçici olarak disable et veya kaldır */}
-          {/* {!collapsed && <PendingAlertBadge />} */}
         </div>
       ),
       onClick: () => navigate('/alerts')

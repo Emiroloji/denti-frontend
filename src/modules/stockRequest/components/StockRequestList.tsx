@@ -29,7 +29,7 @@ import {
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useStockRequests, useStockRequestStats } from '../hooks/useStockRequests'
-import { useClinics } from '@/modules/clinic/hooks/useClinics'
+import { useClinics } from '@/modules/clinics/hooks/useClinics'
 import { StockRequestCard } from './StockRequestCard'
 import { StockRequestForm } from './StockRequestForm'
 import { StockRequestFilters, StockRequestStatus } from '../types/stockRequest.types'
