@@ -12,33 +12,42 @@ import {
   Modal, 
   Typography,
   Statistic,
-  Empty,
-  Spin
+  Table,
+  Tag,
+  Tooltip,
+  Avatar,
+  Popconfirm
 } from 'antd'
+import type { ColumnsType } from 'antd/es/table'
 import { 
   PlusOutlined, 
   ReloadOutlined,
   TeamOutlined,
   CheckCircleOutlined,
-  CloseCircleOutlined
+  CloseCircleOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  EyeOutlined,
+  PhoneOutlined,
+  MailOutlined,
+  UserOutlined,
+  HomeOutlined
 } from '@ant-design/icons'
-import { useSuppliers, useSupplierStats } from '../hooks/useSuppliers'
+import dayjs from 'dayjs'
+import { useSuppliers } from '../hooks/useSuppliers'
 import { Supplier, SupplierFilter } from '../types/supplier.types'
-import { SupplierCard } from './SupplierCard'
 import { SupplierForm } from './SupplierForm'
 
 const { Option } = Select
 const { Search } = Input
 const { Title } = Typography
-const { confirm } = Modal
-
-// Debug için development kontrolü
-const isDev = import.meta.env.MODE === 'development'
 
 export const SupplierList: React.FC = () => {
   const [filters, setFilters] = useState<SupplierFilter>({})
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
   const [isFormModalVisible, setIsFormModalVisible] = useState(false)
+  const [viewingSupplier, setViewingSupplier] = useState<Supplier | null>(null)
+  const [isViewModalVisible, setIsViewModalVisible] = useState(false)
 
   const { 
     suppliers, 
@@ -46,8 +55,6 @@ export const SupplierList: React.FC = () => {
     refetch, 
     deleteSupplier
   } = useSuppliers(filters)
-
-  const { data: supplierStats } = useSupplierStats()
 
   const handleSearch = (value: string) => {
     setFilters(prev => ({ ...prev, name: value }))
@@ -67,17 +74,13 @@ export const SupplierList: React.FC = () => {
     setIsFormModalVisible(true)
   }
 
-  const handleDelete = (id: number) => {
-    confirm({
-      title: 'Tedarikçi Silme',
-      content: 'Bu tedarikçiyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
-      okText: 'Evet, Sil',
-      cancelText: 'İptal',
-      okType: 'danger',
-      onOk: async () => {
-        await deleteSupplier(id)
-      }
-    })
+  const handleView = (supplier: Supplier) => {
+    setViewingSupplier(supplier)
+    setIsViewModalVisible(true)
+  }
+
+  const handleDelete = async (id: number) => {
+    await deleteSupplier(id)
   }
 
   const onFormSuccess = () => {
@@ -85,13 +88,205 @@ export const SupplierList: React.FC = () => {
     setEditingSupplier(null)
   }
 
+  // Stats hesaplama
+  const calculateStats = () => {
+    if (!suppliers) return { total: 0, active: 0, inactive: 0 }
+    
+    const total = suppliers.length
+    const active = suppliers.filter(s => s.is_active).length
+    const inactive = total - active
+    
+    return { total, active, inactive }
+  }
+
+  const stats = calculateStats()
+
+  // Tablo kolonları
+  const columns: ColumnsType<Supplier> = [
+    {
+      title: 'Firma',
+      dataIndex: 'name',
+      key: 'name',
+      width: 200,
+      sorter: (a, b) => a.name.localeCompare(b.name),
+      render: (text: string, record: Supplier) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Avatar 
+            size={32} 
+            style={{ backgroundColor: record.is_active ? '#52c41a' : '#ff4d4f' }}
+          >
+            {text.charAt(0).toUpperCase()}
+          </Avatar>
+          <div>
+            <div style={{ fontWeight: 500, fontSize: '14px' }}>{text}</div>
+            <div style={{ fontSize: '12px', color: '#666' }}>
+              ID: {record.id}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'İletişim Kişisi',
+      dataIndex: 'contact_person',
+      key: 'contact_person',
+      width: 150,
+      sorter: (a, b) => (a.contact_person || '').localeCompare(b.contact_person || ''),
+      render: (text: string) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <UserOutlined style={{ color: '#1890ff', fontSize: '12px' }} />
+          <span>{text || '-'}</span>
+        </div>
+      ),
+    },
+    {
+      title: 'İletişim Bilgileri',
+      key: 'contact',
+      width: 200,
+      render: (_, record: Supplier) => (
+        <Space direction="vertical" size="small">
+          {record.phone && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <PhoneOutlined style={{ color: '#52c41a', fontSize: '12px' }} />
+              <span style={{ fontSize: '12px' }}>{record.phone}</span>
+            </div>
+          )}
+          {record.email && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <MailOutlined style={{ color: '#faad14', fontSize: '12px' }} />
+              <span style={{ fontSize: '12px' }}>{record.email}</span>
+            </div>
+          )}
+        </Space>
+      ),
+    },
+    {
+      title: 'Adres',
+      dataIndex: 'address',
+      key: 'address',
+      width: 200,
+      ellipsis: {
+        showTitle: false,
+      },
+      render: (text: string) => (
+        <Tooltip placement="topLeft" title={text}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <HomeOutlined style={{ color: '#722ed1', fontSize: '12px' }} />
+            <span style={{ fontSize: '12px' }}>{text || '-'}</span>
+          </div>
+        </Tooltip>
+      ),
+    },
+    {
+      title: 'Vergi No',
+      dataIndex: 'tax_number',
+      key: 'tax_number',
+      width: 120,
+      render: (text: string) => (
+        <span style={{ fontSize: '12px', fontFamily: 'monospace' }}>
+          {text || '-'}
+        </span>
+      ),
+    },
+    {
+      title: 'Durum',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      width: 100,
+      filters: [
+        { text: 'Aktif', value: true },
+        { text: 'Pasif', value: false },
+      ],
+      onFilter: (value, record) => record.is_active === value,
+      render: (isActive: boolean) => (
+        <Tag color={isActive ? 'green' : 'red'} style={{ fontSize: '11px' }}>
+          {isActive ? 'Aktif' : 'Pasif'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Ek Bilgiler',
+      key: 'additional_info',
+      width: 150,
+      render: (_, record: Supplier) => (
+        <Space direction="vertical" size="small">
+          {record.additional_info?.delivery_time && (
+            <Tag color="blue" style={{ fontSize: '10px' }}>
+              📦 {record.additional_info.delivery_time}
+            </Tag>
+          )}
+          {record.additional_info?.payment_terms && (
+            <Tag color="orange" style={{ fontSize: '10px' }}>
+              💳 {record.additional_info.payment_terms}
+            </Tag>
+          )}
+        </Space>
+      ),
+    },
+    {
+      title: 'Kayıt Tarihi',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 120,
+      sorter: (a, b) => dayjs(a.created_at).unix() - dayjs(b.created_at).unix(),
+      render: (date: string) => (
+        <span style={{ fontSize: '12px' }}>
+          {dayjs(date).format('DD/MM/YYYY')}
+        </span>
+      ),
+    },
+    {
+      title: 'İşlemler',
+      key: 'actions',
+      width: 120,
+      fixed: 'right',
+      render: (_, record: Supplier) => (
+        <Space size="small">
+          <Tooltip title="Detay Görüntüle">
+            <Button 
+              type="text" 
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => handleView(record)}
+            />
+          </Tooltip>
+          <Tooltip title="Düzenle">
+            <Button 
+              type="text" 
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => handleEdit(record)}
+            />
+          </Tooltip>
+          <Popconfirm
+            title="Tedarikçi Silme"
+            description="Bu tedarikçiyi silmek istediğinizden emin misiniz?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Evet, Sil"
+            cancelText="İptal"
+            okType="danger"
+          >
+            <Tooltip title="Sil">
+              <Button 
+                type="text" 
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+              />
+            </Tooltip>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ]
+
   const statsCards = (
     <Row gutter={16} style={{ marginBottom: 24 }}>
       <Col span={6}>
         <Card>
           <Statistic 
             title="Toplam Tedarikçi" 
-            value={supplierStats?.total_suppliers || 0}
+            value={stats.total}
             prefix={<TeamOutlined />}
           />
         </Card>
@@ -100,7 +295,7 @@ export const SupplierList: React.FC = () => {
         <Card>
           <Statistic 
             title="Aktif Tedarikçi" 
-            value={supplierStats?.active_suppliers || 0}
+            value={stats.active}
             valueStyle={{ color: '#52c41a' }}
             prefix={<CheckCircleOutlined />}
           />
@@ -110,7 +305,7 @@ export const SupplierList: React.FC = () => {
         <Card>
           <Statistic 
             title="Pasif Tedarikçi" 
-            value={supplierStats?.inactive_suppliers || 0}
+            value={stats.inactive}
             valueStyle={{ color: '#ff4d4f' }}
             prefix={<CloseCircleOutlined />}
           />
@@ -119,8 +314,11 @@ export const SupplierList: React.FC = () => {
       <Col span={6}>
         <Card>
           <Statistic 
-            title="Toplam Sipariş" 
-            value={supplierStats?.total_orders || 0}
+            title="Bu Ay Yeni" 
+            value={suppliers?.filter(s => 
+              dayjs(s.created_at).isAfter(dayjs().startOf('month'))
+            ).length || 0}
+            valueStyle={{ color: '#1890ff' }}
           />
         </Card>
       </Col>
@@ -181,44 +379,31 @@ export const SupplierList: React.FC = () => {
     <div>
       <Title level={2}>Tedarikçi Yönetimi</Title>
       
-      {/* Debug Info - Sadece development'ta göster */}
-      {isDev && (
-        <Card style={{ marginBottom: 16, backgroundColor: '#fff7e6' }}>
-          <div>
-            <strong>🔧 Debug Info:</strong>
-            <div>API URL: {import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}</div>
-            <div>Suppliers Count: {suppliers?.length || 0}</div>
-          </div>
-        </Card>
-      )}
-      
       {statsCards}
       {filterSection}
 
-      <Spin spinning={isLoading}>
-        {suppliers && suppliers.length > 0 ? (
-          <Row gutter={[16, 16]}>
-            {suppliers.map((supplier) => (
-              <Col key={supplier.id} xs={24} sm={12} lg={8} xl={6}>
-                <SupplierCard
-                  supplier={supplier}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                />
-              </Col>
-            ))}
-          </Row>
-        ) : (
-          <Empty 
-            description="Henüz tedarikçi kaydı bulunmuyor"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          >
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-              İlk Tedarikçi Kaydını Oluştur
-            </Button>
-          </Empty>
-        )}
-      </Spin>
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={suppliers}
+          rowKey="id"
+          loading={isLoading}
+          pagination={{
+            total: suppliers?.length || 0,
+            pageSize: 10,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => 
+              `${range[0]}-${range[1]} / ${total} tedarikçi`,
+          }}
+          scroll={{ x: 1200 }}
+          size="small"
+          bordered
+          rowClassName={(record) => 
+            !record.is_active ? 'row-disabled' : ''
+          }
+        />
+      </Card>
 
       {/* Form Modal */}
       <Modal
@@ -235,6 +420,77 @@ export const SupplierList: React.FC = () => {
           onCancel={() => setIsFormModalVisible(false)}
         />
       </Modal>
+
+      {/* View Modal */}
+      <Modal
+        title="Tedarikçi Detayları"
+        open={isViewModalVisible}
+        onCancel={() => setIsViewModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setIsViewModalVisible(false)}>
+            Kapat
+          </Button>,
+          <Button key="edit" type="primary" onClick={() => {
+            setIsViewModalVisible(false)
+            handleEdit(viewingSupplier!)
+          }}>
+            Düzenle
+          </Button>
+        ]}
+        width={600}
+      >
+        {viewingSupplier && (
+          <div>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Card size="small" title="Temel Bilgiler">
+                  <p><strong>Firma:</strong> {viewingSupplier.name}</p>
+                  <p><strong>İletişim Kişisi:</strong> {viewingSupplier.contact_person || '-'}</p>
+                  <p><strong>Telefon:</strong> {viewingSupplier.phone || '-'}</p>
+                  <p><strong>E-mail:</strong> {viewingSupplier.email || '-'}</p>
+                  <p><strong>Durum:</strong> <Tag color={viewingSupplier.is_active ? 'green' : 'red'}>
+                    {viewingSupplier.is_active ? 'Aktif' : 'Pasif'}
+                  </Tag></p>
+                </Card>
+              </Col>
+              <Col span={12}>
+                <Card size="small" title="Diğer Bilgiler">
+                  <p><strong>Adres:</strong> {viewingSupplier.address || '-'}</p>
+                  <p><strong>Vergi No:</strong> {viewingSupplier.tax_number || '-'}</p>
+                  <p><strong>Kayıt:</strong> {dayjs(viewingSupplier.created_at).format('DD/MM/YYYY HH:mm')}</p>
+                  <p><strong>Güncellenme:</strong> {dayjs(viewingSupplier.updated_at).format('DD/MM/YYYY HH:mm')}</p>
+                </Card>
+              </Col>
+            </Row>
+            
+            {viewingSupplier.additional_info && (
+              <Card size="small" title="Ticari Bilgiler" style={{ marginTop: 16 }}>
+                <Row gutter={16}>
+                  <Col span={8}>
+                    <p><strong>Teslimat:</strong> {viewingSupplier.additional_info.delivery_time || '-'}</p>
+                  </Col>
+                  <Col span={8}>
+                    <p><strong>İndirim:</strong> {viewingSupplier.additional_info.discount_rate || '-'}</p>
+                  </Col>
+                  <Col span={8}>
+                    <p><strong>Ödeme:</strong> {viewingSupplier.additional_info.payment_terms || '-'}</p>
+                  </Col>
+                </Row>
+              </Card>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      <style>{`
+        .row-disabled {
+          background-color: #f5f5f5;
+          opacity: 0.7;
+        }
+        .ant-table-small .ant-table-tbody > tr > td {
+          padding: 8px;
+        }
+      `}</style>
     </div>
   )
 }

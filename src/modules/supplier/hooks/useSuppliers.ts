@@ -89,11 +89,4 @@ export const useActiveSuppliers = () => {
   })
 }
 
-// Tedarikçi istatistikleri için hook
-export const useSupplierStats = () => {
-  return useQuery({
-    queryKey: ['suppliers', 'stats'],
-    queryFn: supplierApi.getStats,
-    select: (data) => data.data
-  })
-}
+
